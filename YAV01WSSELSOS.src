@@ -1,0 +1,216 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#**
+#* ******************************************************
+#* Client                   : AVV
+#* ******************************************************
+#* Traitement               : YAV01WSSELSOS
+#* Date de création         : 03/07/2013
+#* Date de dernière MAJ     : 03/11/2015
+#* Version                  : 2.0
+#* Auteurs                  : OMA
+#* *******************************************************
+#* Fiches spécifiques       :
+#* Codes  spécifiques       : YAV01 - Bureautique
+#* Desc Fiches spécifiques  : Sélection des prévisions objet SOS
+#* *******************************************************
+#* Modifications ( évolutions, bug,...)
+#* *******************************************************
+#* Date       : Auteur  : Description           : No evolution/bug
+#* *******************************************************
+#* XX/XX/XXXX : XXX     : XXXXXXXXXXXXXXXXXXXX  : ENNNN
+#*
+#*!
+
+
+
+
+$ACTION
+Case ACTION
+ When "SEL_TRT_SUBPROG" : Gosub SEL_TRT_SUBPROG
+Endcase
+Return
+
+
+$SEL_TRT_SUBPROG
+#maxmem = 40960
+[S]maxmem = 40960*2
+Local Integer   YNBLIG : # nb de lignes en tout
+Local Integer   YNBTABVAL : # Nb de colonne d'une ligne
+Local Char      YTABVAL(80)(0..2000,0..150)
+Local Char      YTABDESCOL(250)(0..150)
+Local Integer   YI,YJ
+
+Call SELSOS(TABCRIT,YNBLIG,YNBTABVAL,YTABVAL,YTABDESCOL,STARET,MESRET)
+
+Return
+
+
+Subprog SELSOS(TABCRIT,NBLIG,NBTABVAL,TABVAL,TABDESCOL,STARET,MESRET)
+Value    Char    TABCRIT()()     : # Filtre
+Variable Integer NBLIG           : # nb de lignes en tout ??perer
+Variable Integer NBTABVAL        : # Nb de colonne d'une ligne
+Variable Char    TABVAL()(,)     : # Tableau des colonnes de la ligne nolig
+Variable Char    TABDESCOL()()   : # desc colomme #nma commence ?
+Variable Integer STARET          : # Statut de retour
+Variable Char    MESRET()        : # message de retour
+
+Local Integer NUMREQ
+Local Integer YFIY_N, YFIY_NMOINSUN
+Local Integer L,C
+
+#TABCRIT(0) --> Site
+#TABCRIT(1) --> Date début
+#TABCRIT(2) --> Date fin
+#TABCRIT(3) --> Type de donnée DATAFORM ou DATAREPn ; n=1,2
+
+# STARET - 1000 - Pb lecture de table
+
+If !clalev([F:ORD]) : Local File ORDERS         [ORD] : Endif
+If !clalev([F:ITS]) : Local File ITMSALES       [ITS] : Endif
+If !clalev([F:ITM]) : Local File ITMMASTER      [ITM] : Endif
+If !clalev([F:FCY]) : Local File FACILITY       [FCY] : Endif
+If !clalev([F:CPY]) : Local File COMPANY        [CPY] : Endif
+Link [ITS] With [ITM]ITM0 ~= [ITS]ITMREF As [YITS] Order By Key CLE = [ITS]ITMREF
+Link [FCY] With [CPY]CPY0 ~= [FCY]LEGCPY As [YFCY] Order By Key CLE = [FCY]FCY
+Link [ORD] With [ITS]ITS0 ~= [ORD]ITMREF, [ITM]ITM0 ~=[ORD]ITMREF
+&          As [YORD] Order By Key CLE = [ORD]STOFCY;[ORD]ITMREF;[ORD]ENDDAT
+YI = 0
+Gosub INIT_LIG
+Gosub ALIM_COL
+
+End
+
+#---------------------------------------------------------
+# libellé des colonnes
+# type d'affichage::nom colonne::macro ou formule::code retour
+$INIT_LIG
+# Starting date End date  Product Designation Expected quantity Quantity  Amount
+
+# Libellé des colonnes
+C=-1
+C+=1 : [L]TABVAL(YI,C) = "Data Type"
+C+=1 : [L]TABVAL(YI,C) = "Site"
+C+=1 : [L]TABVAL(YI,C) = "Select product"
+C+=1 : [L]TABVAL(YI,C) = "Period"
+C+=1 : [L]TABVAL(YI,C) = "Product"
+C+=1 : [L]TABVAL(YI,C) = "Designation"
+C+=1 : [L]TABVAL(YI,C) = "Expected quantity"
+C+=1 : [L]TABVAL(YI,C) = "Unit value"
+C+=1 : [L]TABVAL(YI,C) = "Sales unit"
+C+=1 : [L]TABVAL(YI,C) = "Amount"
+C+=1 : [L]TABVAL(YI,C) = "Currency"
+C+=1 : [L]TABVAL(YI,C) = "X3 Representation  ITMMASTER"
+C+=1 : [L]TABVAL(YI,C) = "Hidden Product code"
+C+=1 : [L]TABVAL(YI,C) = "Link ITMMASTER"
+C+=1 : [L]TABVAL(YI,C) = "Site/Product sales"
+C+=1 : [L]TABVAL(YI,C) = "Site designation/Product sales designation"
+C+=1 : [L]TABVAL(YI,C) = "Currency/base price"
+C+=1 : [L]TABVAL(YI,C) = "Empty/Unit sales"
+
+## Description des colonnes
+
+C=-1
+C+=1 : [L]TABDESCOL(C) = "Hidden::TYPDATA::Empty::K"
+C+=1 : [L]TABDESCOL(C) = "Hidden::SITE::Empty::K"
+#C+=1 : [L]TABDESCOL(C) = "Enter::ITMSELECT::RC6=RC3;RC8=VLOOKUP(RC3,TableauDataRep2,3);RC13=VLOOKUP(RC3,TableauDataRep2[[Products sales]:[Designation]],1);"
+#&                      + "RC5=IF(HYPERLINK(RC14,RC13)<>0,HYPERLINK(RC14,RC13),X3L5);RC14=CONCATENATE(X3L1,RC13,X3L3,RC12,X3L2,RC12,X3L4)"
+C+=1 : [L]TABDESCOL(C) = "Enter::ITMSELECT::RC6=RC3;RC8=VLOOKUP(RC3,TableauDataRep2,3);RC13=VLOOKUP(RC3,TableauDataRep2,1)"
+&                      + ";RC9=VLOOKUP(RC3,TableauDataRep2,4);RC11=VLOOKUP(RC2,TableauDataRep1,3)"
+
+C+=1 : [L]TABDESCOL(C) = "Enter::PERIODEENDDAT::Empty::K"
+C+=1 : [L]TABDESCOL(C) = "Display::ITMREF"
+C+=1 : [L]TABDESCOL(C) = "Display::ITMDES"
+C+=1 : [L]TABDESCOL(C) = "Enter::EXTQTY::RC10=RC7*RC8::V"
+C+=1 : [L]TABDESCOL(C) = "Display::UNIT_VALUE"
+C+=1 : [L]TABDESCOL(C) = "Display::UNITSALES"
+C+=1 : [L]TABDESCOL(C) = "Display::AMOUNT"
+C+=1 : [L]TABDESCOL(C) = "Display::CUR"
+C+=1 : [L]TABDESCOL(C) = "Hidden::REPITMASTER"
+C+=1 : [L]TABDESCOL(C) = "Hidden::PRODUCTCODE::Empty::K"
+C+=1 : [L]TABDESCOL(C) = "Hidden::LINKITM"
+C+=1 : [L]TABDESCOL(C) = "Hidden::REP"
+C+=1 : [L]TABDESCOL(C) = "Hidden::REPDES"
+C+=1 : [L]TABDESCOL(C) = "Hidden::INFO1"
+C+=1 : [L]TABDESCOL(C) = "Hidden::INFO2"
+Return
+
+#===================
+$ALIM_COL
+YI+=1
+Local Char YYCRIT(250)(2)
+Local Char YLINK(255)
+TABCRIT(1) = left$(TABCRIT(1),10)
+TABCRIT(2) = left$(TABCRIT(2),10)
+#YYCRIT(0)= '[ORD]STRDAT>=['+[L]TABCRIT(1)+'] & [ORD]ENDDAT<=['+[L]TABCRIT(2)+']'
+YYCRIT(0)="1=1"
+YYCRIT(1)= '& [ORD]WIPTYP=1 & [ORD]WIPSTA=3'
+
+If TABCRIT(3) = "DATAFORM"
+ Read [FCY]FCY0 = TABCRIT(0)
+ If !fstat
+  Read [CPY]CPY0=[F:FCY]LEGCPY
+ Endif
+# For L= 1 To 9
+#    C=0
+#         : [L]TABVAL(YI,0)  = "DATAFORM"
+#    C+=1 : [L]TABVAL(YI,C)  = TABCRIT(0) : # Site
+#    C+=1 : [L]TABVAL(YI,C)  = ""
+#    C+=1 : [L]TABVAL(YI,C)  = ""
+#    C+=1 : [L]TABVAL(YI,C)  = ""
+#    C+=1 : [L]TABVAL(YI,C)  = "=IF(HYPERLINK(RC13,RC12)<>0,HYPERLINK(RC13,RC12),X3L5)"
+#    C+=1 : [L]TABVAL(YI,C)  = ""
+#    C+=1 : [L]TABVAL(YI,C)  = ""
+#    C+=1 : [L]TABVAL(YI,C)  = ""
+#    C+=1 : [L]TABVAL(YI,C)  = "=RC8*RC9"
+#    C+=1 : [L]TABVAL(YI,C)  = "ITMMASTER"
+#    C+=1 : [L]TABVAL(YI,C)  = ""
+#    C+=1 : [L]TABVAL(YI,C)  = '=CONCATENATE(X3L1,RC11,X3L3,RC12,X3L2,RC11,X3L4)'
+#    YI+=1
+# Next
+ For [YORD]CLE Where [ORD]STOFCY = [L]TABCRIT(0) & evalue(YYCRIT) & [F:ORD]ITMREF<>"ALUM_RACK"
+    C=0
+         : [L]TABVAL(YI,0)  = "DATAFORM"
+    C+=1 : [L]TABVAL(YI,C)  = TABCRIT(0) : # Site
+    C+=1 : [L]TABVAL(YI,C)  = '' : # Correspond à la colonne de selection qui doit être vide. Dessus on aura dans excel une liste de valeur
+    C+=1 : [L]TABVAL(YI,C)  = format$("D:MM[/]DD[/]YYYY",[F:ORD]ENDDAT) : # Format anglosaxon
+    C+=1 : [L]TABVAL(YI,C)  = "=IF(HYPERLINK(RC14,RC13)<>0,HYPERLINK(RC14,RC13),X3L5)" : # =LIEN_HYPERTEXTE(Forecast!$S14;Forecast!$R14)
+    C+=1 : Call LECTEXTRA([L]TABVAL(YI,C) ,"ITMMASTER","DES1AXX",[F:ORD]ITMREF,"") From ATEXTRA :  : [L]TABVAL(YI,C) = format$("K:20X",[F:ORD]ITMREF)
+&               +string$(20-len([F:ORD]ITMREF)," ")+"--"+ctrans([L]TABVAL(YI,C),'"','')
+    C+=1 : [L]TABVAL(YI,C)  = num$([F:ORD]EXTQTY)
+    C+=1 : [L]TABVAL(YI,C)  = num$([F:ITS]BASPRI)
+    C+=1 : [L]TABVAL(YI,C)  = [F:ITM]SAU
+    C+=1 : [L]TABVAL(YI,C)  = "=RC7*RC8"
+    C+=1 : [L]TABVAL(YI,C)  = [F:CPY]ACCCUR
+    C+=1 : [L]TABVAL(YI,C)  = "ITMMASTER"
+    C+=1 : [L]TABVAL(YI,C)  = num$([F:ORD]ITMREF)
+    C+=1 : [L]TABVAL(YI,C) = '=CONCATENATE(X3L1,RC12,X3L3,RC13,X3L2,RC12,X3L4)'
+    #=CONCATENER(X3L1;Forecast!$Q13;X3L3;Forecast!$R13;X3L2;Forecast!$Q13;X3L4)
+    YI+=1
+ Next
+Elsif TABCRIT(3)="DATAREP"
+ For [YFCY]CLE Where 1=1
+    C=13
+         : [L]TABVAL(YI,0)  = "DATAREP1"
+    C+=1 : [L]TABVAL(YI,C)  = [F:FCY]FCY
+    C+=1 : [L]TABVAL(YI,C)  = format$("K:5X",[F:FCY]FCY)+string$(5-len([F:FCY]FCY)," ")+"--"+[F:FCY]FCYNAM
+    C+=1 : [L]TABVAL(YI,C)  = [F:CPY]ACCCUR
+    YI+=1
+ Next
+
+ For [YITS]CLE Where 1=1 & [F:ITS]ITMREF<>"ALUM_RACK"
+    C=13
+         : [L]TABVAL(YI,0)  = "DATAREP2"
+    C+=1 : [L]TABVAL(YI,C)  = [F:ITS]ITMREF
+    C+=1 : Call LECTEXTRA([L]TABVAL(YI,C) ,"ITMMASTER","DES1AXX",[F:ITS]ITMREF,"") From ATEXTRA : [L]TABVAL(YI,C) = format$("K:20X",[F:ITS]ITMREF)
+&               +string$(20-len([F:ITS]ITMREF)," ")+"--"+ctrans([L]TABVAL(YI,C),'"','')
+    C+=1 : [L]TABVAL(YI,C)  = num$([F:ITS]BASPRI)
+    C+=1 : [L]TABVAL(YI,C)  = num$([F:ITM]SAU)
+    YI+=1
+ Next
+Endif
+NBLIG=YI
+
+NBTABVAL = 18
+
+Return
+

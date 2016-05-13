@@ -1,0 +1,2174 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#**
+#* ******************************************************
+#* Client                   : AVV
+#* ******************************************************
+#* Traitement               : YAV01WSUPDSOS
+#* Date de création         : 03/07/2013
+#* Date de dernière MAJ     : 03/11/2015
+#* Version                  : 2.0
+#* Auteurs                  : OMA
+#* *******************************************************
+#* Fiches spécifiques       :
+#* Codes  spécifiques       : YAV01 - Bureautique
+#* Desc Fiches spécifiques  : Maj des prévisions objet SOS
+#* *******************************************************
+#* Modifications ( évolutions, bug,...)
+#* *******************************************************
+#* Date       : Auteur  : Description           : No evolution/bug
+#* *******************************************************
+#* XX/XX/XXXX : XXX     : XXXXXXXXXXXXXXXXXXXX  : ENNNN
+#*
+#*!
+
+
+
+
+$ACTION
+Case ACTION
+ When "INI_TRT_SUBPROG" : Gosub INI_TRT_SUBPROG
+ When "UPD_TRT_SUBPROG" : Gosub UPD_TRT_SUBPROG
+Endcase
+Return
+
+$INI_TRT_SUBPROG
+
+Local Char CLE(50)(0..1000,0..NBKEY-1)
+Local Char VALEUR(50)(0..1000,0..NBVAL-1)
+Local Char CLEVAL(50)(0..max(NBKEY,NBVAL)+1000)
+
+If !clalev([F:ORD]) : Local File ORDERS         [ORD] : Endif
+If !clalev([F:ITS]) : Local File ITMSALES       [ITS] : Endif
+If !clalev([F:ITM]) : Local File ITMMASTER      [ITM] : Endif
+If !clalev([F:FCY]) : Local File FACILITY       [FCY] : Endif
+If !clalev([F:CPY]) : Local File COMPANY        [CPY] : Endif
+
+Local Integer YI,YD1,YD2,YDD,YMM,YYYYY
+Local Char YDATATYPE(20)
+Local Char YSTOFCY(GLONFCY)
+Local Char YITMREF(GLONITM)
+Local Date YENDDAT
+Local Decimal YEXTQTY
+
+Return
+
+
+$UPD_TRT_SUBPROG
+Onerrgo ERREUR
+Trbegin [ORD]
+GOK=1
+For YI = 0 To NBTABCLB - 1
+ [L]YDATATYPE  = CLE(YI,0)
+ [L]YSTOFCY    = CLE(YI,1)
+ [L]YITMREF    = CLE(YI,3)
+ #[L]YENDDAT    = seg$(CLE(YI,2),7,10)+seg$(CLE(YI,2),4,5)+seg$(CLE(YI,2),1,2)
+ # on veut envoyer dans le formmat date enddat = YYYYMMDD --> conversion auto --> [DD/MM/YYYY]
+ # ou bien avec le gdat$
+ [L]YENDDAT=[0/0/0]
+ If GLANGUE="FRA"
+  [L]YENDDAT    = seg$(CLE(YI,2),7,10)+seg$(CLE(YI,2),4,5)+seg$(CLE(YI,2),1,2)
+ Else
+  # en eng MM/DD/YYYY
+  YD1 = instr(1,CLE(YI,2),"/")
+  If YD1
+   YD2 = instr(YD1+1,CLE(YI,2),"/")
+   If YD2
+    YDD   = val(seg$(CLE(YI,2),YD1+1,YD2-1)):#YMM,YYYYY
+    YMM   = val(seg$(CLE(YI,2),1,YD1-1))
+    YYYYY = val(seg$(CLE(YI,2),YD2+1,YD2+1+4))
+    [L]YENDDAT    = gdat$(YDD,YMM,YYYYY)
+   Endif
+  Endif
+ Endif
+ If YENDDAT=[0/0/0]
+  GOK=0
+  STARET = 2
+  MESRET = " Date not evaluated : "-[L]YSTOFCY
+  Break
+ Endif
+ [L]YEXTQTY    = val(VALEUR(YI,0))
+ If YDATATYPE = "DATAFORM"
+  #For YJ = 0 To NBKEY-1
+   If [FCY]FCY<>[L]YSTOFCY
+    Read [FCY]FCY0 = [L]YSTOFCY
+   Else
+    fstat=0
+   Endif
+   If fstat
+    GOK=0
+    STARET = 2
+    MESRET = " Site not exist : "-[L]YSTOFCY
+    Break
+   Endif
+   If [ITS]ITMREF<> [L]YITMREF
+    Read [ITS]ITS0 =  [L]YITMREF
+   Else
+    fstat=0
+   Endif
+   If fstat
+    GOK=0
+    STARET = 2
+    MESRET = "Product sales  not exist : "-[L]YITMREF
+    Break
+   Endif
+   Update [ORD] Where [ORD]STOFCY = [L]YSTOFCY & [ORD]ITMREF= [L]YITMREF & [ORD]ENDDAT=[L]YENDDAT
+&               With [ORD]EXTQTY = [L]YEXTQTY
+   If fstat : GOK=0 : Break : Endif
+  #Next
+  If GOK=0 : Break  : Endif
+ Endif
+ If GOK=0 : Break : Endif
+Next
+$FIN_TR
+If GOK=1
+ Commit
+ #Rollback
+Else
+ Rollback
+Endif
+Return
+
+$ERREUR
+GOK=0
+STARET = 2
+MESRET = " Error update table Orders"
+Resume
+
+#Gosub OUVRE From SOSIMPORT
+#
+#Local Integer I, OK,IMPFIN
+#
+#Raz NBUPD
+#OK=1
+#IMPFIN=0
+##{"DATAFORM","01/01/2015 00:00:00","DIS007"}</FLD><FLD NAME='TABVALCLB'>{"83"}</FLD>
+#For I= 0 To NBLIG-1
+# If CLE(I,1)<>""
+#  NBUPD +=1
+#  Gosub RAZCRE From SOSIMPORT
+#  [F:ORD]STOFCY = CLE(I,1)
+#  [F:ORD]ITMREF
+#  [F:ORD]ENDDAT
+#  [F:ORD]EXTQTY
+#  #GIMP(1) =
+#  Gosub VALID From SOSIMPORT
+# Endif
+#
+#
+#
+#For [BUD] Where LEDTYP = val(CLE(I,2))
+#&         &     BUD    = CLE(I,1)
+#&         &     CPY    = CLE(I,0)
+#&         &     FCY    = CLE(I,3)
+#&         &     FIY    = val(CLE(I,4))
+#&         &     VER    = CLE(I,5)
+#&         &     ACC    = CLE(I,6)
+#&         &     CCE1   = CLE(I,7)
+#&         &     CCE2   = CLE(I,8)
+#&         &     CCE3   = CLE(I,9)
+# NBUPD +=1
+#
+# For PER = 0 To 11
+#  [F:BUD]AMT(PER) = ar2(val(VALEUR(I,0))/12)
+# Next
+# Rewrite [BUD] Curr
+# Gosub RAZCRE From SOSIMPORT
+#Next
+
+
+#Call ECRBUD(FILT,NBUPD,TRANSAC,NBTABCLB,CLE,VALEUR,STARET,MESRET)
+
+
+Return
+
+
+
+#=============
+
+
+
+
+#=============
+
+#=================
+$CTRUSR
+
+# Pas de contrôle pour utilisateurs Administrateurs
+If find([L]FILT,[ZFA]ZUSRADM)>0 : [L]YCRITUSR = "1=1" : Return : Endif
+
+Read [ZFU]ZFU0 = [L]FILT;YVERS;[ZFA]ZPROCESS
+If fstat=0 and [F:ZFU]ZVAL=2
+  STARET = 2
+  MESRET = mess(19,6002,1)
+  Return
+Endif
+
+# On contrôle l'accès selon les dates
+If (date$<[F:ZFA]ZDATDEB(0) or date$>[F:ZFA]ZDATFIN(2)) and find([L]FILT,[ZFA]ZUSRADM)=0
+  STARET = 2
+  MESRET = mess(1,6002,1)-WVERS(1)
+  Return
+Endif
+
+# période 1 : accès aux codes users ayant un ZUSER (représentant/sales manager) égal à leur code user dans au moins un enreg
+If date$>=[F:ZFA]ZDATDEB(0) and date$<=[F:ZFA]ZDATFIN(0)
+  Filter [ZFH] Where ZANNEE=[ZFA]ZANNEE & ZPERNUM=[ZFA]ZPERNUM & ZPROCESS=[ZFA]ZPROCESS & ZUSER=[L]FILT
+  Read [ZFH] First
+  Filter [ZFH]
+  If fstat
+    STARET = 2
+    MESRET = mess(1,6002,1)-WVERS(2)
+    Return
+  Else
+    [L]YCRITUSR = "ZUSER=[L]FILT"
+  Endif
+Endif
+
+# période 2 : accès aux codes users ayant un ZSEGMAN (segment manager) égal à leur code user dans au moins un enreg
+If date$>=[F:ZFA]ZDATDEB(1) and date$<=[F:ZFA]ZDATFIN(1)
+  Filter [ZFH] Where ZANNEE=[ZFA]ZANNEE & ZPERNUM=[ZFA]ZPERNUM & ZPROCESS=[ZFA]ZPROCESS & ZSEGMAN=[L]FILT
+  Read [ZFH] First
+  Filter [ZFH]
+  If fstat
+    # Si révision autorisée on permet à un user SMA de faire l'extraction
+    If [ZFA]ZREVSGM=2
+      Filter [ZFH] Where ZANNEE=[ZFA]ZANNEE & ZPERNUM=[ZFA]ZPERNUM & ZPROCESS=[ZFA]ZPROCESS & ZUSER=[L]FILT
+      Read [ZFH] First
+      Filter [ZFH]
+      If fstat
+        STARET = 2
+        MESRET = mess(1,6002,1)-WVERS(2)
+        Return
+      Else
+        [L]YCRITUSR = "ZUSER=[L]FILT"
+      Endif
+    Else
+      STARET = 2
+      MESRET = mess(1,6002,1)-WVERS(3)
+      Return
+    Endif
+  Else
+    [L]YCRITUSR = "ZSEGMAN=[L]FILT"
+  Endif
+Endif
+
+# période 3 : accès aux codes users ayant leur code user présent dans la liste des top managers
+If date$>=[F:ZFA]ZDATDEB(2) and date$<=[F:ZFA]ZDATFIN(2)
+  If find([L]FILT,[ZFA]ZUSRTMG)>0
+    Filter [ZFH] Where ZANNEE=[ZFA]ZANNEE & ZPERNUM=[ZFA]ZPERNUM & ZPROCESS=[ZFA]ZPROCESS
+    Read [ZFH] First
+    Filter [ZFH]
+    If fstat
+        STARET = 2
+        MESRET = mess(1,6002,1)-WVERS(4)
+        Return
+    Else
+      [L]YCRITUSR = "1=1"
+    Endif
+  Else
+    # Si révision autorisée on permet à un user SMA ou SGM de faire l'extraction
+    If [ZFA]ZREVFIN=2
+      Filter [ZFH] Where ZANNEE=[ZFA]ZANNEE & ZPERNUM=[ZFA]ZPERNUM & ZPROCESS=[ZFA]ZPROCESS & ZSEGMAN=[L]FILT
+      Read [ZFH] First
+      Filter [ZFH]
+      If fstat
+        Filter [ZFH] Where ZANNEE=[ZFA]ZANNEE & ZPERNUM=[ZFA]ZPERNUM & ZPROCESS=[ZFA]ZPROCESS & ZUSER=[L]FILT
+        Read [ZFH] First
+        Filter [ZFH]
+        If fstat
+          STARET = 2
+          MESRET = mess(1,6002,1)-WVERS(2)+"/"+WVERS(3)
+          Return
+        Else
+          [L]YCRITUSR = "ZUSER=[L]FILT"
+        Endif
+      Else
+        [L]YCRITUSR = "ZSEGMAN=[L]FILT"
+      Endif
+    Else
+      STARET = 2
+      MESRET = mess(1,6002,1)-WVERS(4)
+      Return
+    Endif
+  Endif
+Endif
+Return
+
+#======================
+$NEWLIG
+Trbegin [ZFB],[ZFH]
+
+
+# Création des clés non présentes identifiées dans ZANATMPBO
+# Version courante
+For [ZAB]ZAB3 Where ZPROCESS=1 and ZANNEE=[F:ZFA]ZANNEE and ZPERNUM=[F:ZFA]ZPERNUM and ZTCLCOD="FP" and find(ZREP,YLISTREP)>0
+  ZCLE=evalue(CLEREFB)
+  ZJ = find(ZCLE,CLEFORBUD)
+  If ZJ=0
+    ZI+=1
+    CLEFORBUD(ZI) = ZCLE
+
+    Raz [ZFB]
+    [ZFB]=[ZAB]
+
+    [F:ZFB]ZPROCESS = [ZFA]ZPROCESS
+    [F:ZFB]ZLVL     = XLVL
+    [F:ZFB]ZANNEE   = [ZFA]ZANNEE
+    [F:ZFB]ZPERNUM  = [ZFA]ZPERNUM
+    [F:ZFB]ZVERS    = YVERS
+
+    [F:ZFB]ZSTA = 0
+    [F:ZFB]ZVAL = 0
+
+    # Enrichissement des données
+    Raz [ZAR]
+    Read [ZAR]ZAR0 = [F:ZFB]ZITMREF
+    If fstat=0
+      [ZFB] = [ZAR]
+    Endif
+    Raz [ZBB]
+    Read [ZBB]ZBB0 = [ZFB]NFINALCUS;[ZFB]ZUSAGE;[ZFB]ZBPDCRY
+    If fstat=0
+      [ZFB] = [ZBB]
+    Endif
+    Raz [ZMK]
+    Read [ZMK]ZMK0 = [ZFB]NFINALCUS;[F:ZFB]ZITMREF
+    If fstat=0
+      [ZFB] = [ZMK]
+      Raz [ADI]
+      Read [F:ADI]CODE = 1007; [F:ZMK]ZMARKGRID
+      [F:ZFB]ZSEGMAN   = [F:ADI]A1
+    Endif
+
+    [F:ZFB]CREUSR   = GUSER
+    [F:ZFB]CREDAT   = date$
+
+    Write [ZFB]
+
+    If fstat
+      ZSTAT=1
+      STARET=2
+      MESRET=mess(2,6002,1)-"ZFB"
+      Break
+    Endif
+
+    Raz [ZFH]
+    Look [ZFH]ZFH0 = [ZFA]ZPROCESS;[ZFA]ZANNEE;[ZFA]ZPERNUM;[ZFB]ZREP;[ZFB]ZGRPBPC;[ZFB]ZBPDCRY
+
+    If fstat
+      [F:ZFH] = [F:ZFB]
+      [F:ZFB]ZSTA = 1
+      [F:ZFB]ZVERS = ""
+      Write [ZFH]
+      If fstat
+        ZSTAT=1
+        STARET=2
+        MESRET=mess(2,6002,1)-"ZFH"
+        Break
+      Endif
+    Endif
+
+    # On alimente le tableau pour Excel avec les nouvelles clés
+    Gosub ALIM_COL
+
+  Endif
+
+Next
+
+If ZSTAT<>0
+  Rollback
+Else
+  Commit
+Endif
+
+Return
+
+#-------------------
+$FLGXLS
+Trbegin [ZFU]
+# Si l'utilisateur est administrateur on ne gère pas d'enreg dans ZUSRFBUD
+If find([L]FILT,[ZFA]ZUSRADM)>0
+  Commit
+  Return
+Endif
+
+Read [ZFU]ZFU0 = [L]FILT;YVERS;[ZFA]ZPROCESS
+If fstat
+  [F:ZFU]CODUSR = [L]FILT
+  [F:ZFU]ZVERS = YVERS
+  [F:ZFU]ZPROCESS =   [ZFA]ZPROCESS
+  [F:ZFU]ZSTAXLS = 2
+  Write [ZFU]
+  If fstat
+    ZSTAT=1
+    STARET=2
+    MESRET=mess(18,6002,1)
+  Endif
+Else
+  [F:ZFU]ZSTAXLS = 2
+  Rewrite [ZFU]
+  If fstat
+    ZSTAT=1
+    STARET=2
+    MESRET=mess(18,6002,1)
+  Endif
+Endif
+
+If ZSTAT<>0
+  Rollback
+  Return
+Else
+  Commit
+Endif
+
+Return
+
+
+#===================
+$ALIM_COL
+
+Raz LYQTY1, LYQTY2, LYQTY3, LYQTY4, LYQTY5, LYQTY6, LYQTY7, LYQTY8, LYQTY9, LYQTY10, LYQTY11, LYQTY12
+Raz LYREV1, LYREV2, LYREV3, LYREV4, LYREV5, LYREV6, LYREV7, LYREV8, LYREV9, LYREV10, LYREV11, LYREV12
+Raz LYQTYYTD, LYREVYTD, LYRYTDEUR, LYUPYTD, LYUPFRYTD, LYUPESYTD, LYUPEXWYTD, LYQTYTOT, LYREVTOT, LYRTOTEUR, LYUPTOT, LYUPFRTOT, LYUPESTOT, LYUPEXWTOT
+Raz BUQTY1, BUQTY2, BUQTY3, BUQTY4, BUQTY5, BUQTY6, BUQTY7, BUQTY8, BUQTY9, BUQTY10, BUQTY11, BUQTY12
+Raz BUREV1, BUREV2, BUREV3, BUREV4, BUREV5, BUREV6, BUREV7, BUREV8, BUREV9, BUREV10, BUREV11, BUREV12
+Raz BUQTYYTD, BUREVYTD, BURYTDEUR, BUUPYTD, BUQTYTOT, BUREVTOT, BURTOTEUR, BUUPTOT, BUUPFRTOT, BUUPESTOT, BUUPEXWTOT
+Raz LFQTY1, LFQTY2, LFQTY3, LFQTY4, LFQTY5, LFQTY6, LFQTY7, LFQTY8, LFQTY9, LFQTY10, LFQTY11, LFQTY12
+Raz LFREV1, LFREV2, LFREV3, LFREV4, LFREV5, LFREV6, LFREV7, LFREV8, LFREV9, LFREV10, LFREV11, LFREV12
+Raz LFQTYYTD, LFREVYTD, LFUPYTD, LFQTYTOT, LFREVTOT, LFRTOTEUR, LFUPTOT
+Raz NYQTY1, NYQTY2, NYQTY3, NYQTY4, NYQTY5, NYQTY6, NYQTY7, NYQTY8, NYQTY9, NYQTY10, NYQTY11, NYQTY12
+Raz NYREV1, NYREV2, NYREV3, NYREV4, NYREV5, NYREV6, NYREV7, NYREV8, NYREV9, NYREV10, NYREV11, NYREV12
+Raz NYQTYYTD, NYREVYTD, NYUPYTD, NYQTYTOT, NYREVTOT, NYRTOTEUR, NYUPTOT, NYUPFRTOT, NYUPESTOT, NYUPEXWTOT
+Raz ACTREV1, ACTREV2, ACTREV3, ACTREV4, ACTREV5, ACTREV6, ACTREV7, ACTREV8, ACTREV9, ACTREV10, ACTREV11, ACTREV12
+Raz ACTQTYYTD, ACTREVYTD, ACTRYTDEUR, ACTUPYTD, ACTUPFRYTD, ACTUPESYTD, ACTUPEXWYTD
+Raz QTYPER1, QTYPER2, QTYPER3, QTYPER4, QTYPER5, QTYPER6, QTYPER7, QTYPER8, QTYPER9, QTYPER10, QTYPER11, QTYPER12
+Raz QTYTOT, ZUNIPRI, ZREV, ZREVEUR, VARMTLY, VARMTLF, VARMTBU, VARUPLY, VARUPLF, VARUPBU
+Raz COEFF1, COEFF2, COEFF3, COEFF4, COEFF5, COEFF6, COEFF7, COEFF8, COEFF9, COEFF10, COEFF11, COEFF12
+Raz BQTYPER1, BQTYPER2, BQTYPER3, BQTYPER4, BQTYPER5, BQTYPER6, BQTYPER7, BQTYPER8, BQTYPER9, BQTYPER10, BQTYPER11, BQTYPER12
+Raz BQTYTOT, BZUNIPRI, BZREV, BZREVEUR, BVARMTLY, BVARMTBU, BVARUPLY, BVARUPBU
+Raz BCOEFF1, BCOEFF2, BCOEFF3, BCOEFF4, BCOEFF5, BCOEFF6, BCOEFF7, BCOEFF8, BCOEFF9, BCOEFF10, BCOEFF11, BCOEFF12
+
+[L]TABVAL(ZI,0) = num$([ZFA]ZPROCESS)
+[L]TABVAL(ZI,1) = YVERS
+[L]TABVAL(ZI,2) = num$([ZFA]ZANNEE)
+[L]TABVAL(ZI,3) = num$([ZFA]ZPERNUM)
+
+# Eléments de clé
+[L]TABVAL(ZI,4) = [F:ZFB]ZREPNAM # Added 11/02/2014
+[L]TABVAL(ZI,5) = [F:ZFB]ZFCUSGRDES
+[L]TABVAL(ZI,6) = [F:ZFB]ZBPDCRY
+[L]TABVAL(ZI,7) = [F:ZFB]ZBPDCRYNAM
+[L]TABVAL(ZI,8) = [F:ZFB]NFINALCUS
+[L]TABVAL(ZI,9) = [F:ZFB]FINALCUSD
+[L]TABVAL(ZI,10) = [F:ZFB]ZBPCNAM
+[L]TABVAL(ZI,11) = [F:ZFB]ZSEAKEY
+[L]TABVAL(ZI,12) = [F:ZFB]ZITMREF
+[L]TABVAL(ZI,13) = [F:ZFB]ZITMDES1
+[L]TABVAL(ZI,14) = [F:ZFB]ZTSIDES5
+[L]TABVAL(ZI,15) = [F:ZFB]ZTSIDES(4)
+[L]TABVAL(ZI,16) = [F:ZFB]ZTSIDES(1)
+[L]TABVAL(ZI,17) = [F:ZFB]ZITMMINER
+[L]TABVAL(ZI,18) = [F:ZFB]ZKPG
+[L]TABVAL(ZI,19) = [F:ZFB]ZMARKGRDES # Added 11/02/2014
+[L]TABVAL(ZI,20) = [F:ZFB]ZMARKSBDES
+[L]TABVAL(ZI,21) = [F:ZFB]ZEECICT1
+[L]TABVAL(ZI,22) = [F:ZFB]ZEECTRN
+[L]TABVAL(ZI,23) = [F:ZFB]ZSTOFCY
+[L]TABVAL(ZI,24) = [F:ZFB]ZSTOFCYNAM
+[L]TABVAL(ZI,25) = [F:ZFB]ZCUR
+
+
+
+#----- Actuals année N-1
+Raz WQTY, WREV, WQTYYTD, WREVYTD, WUPFRYTD, WUPESYTD, WREVEUR, WREVYTDEUR
+# on charge les éléments Actual N-1
+#For [ZAB]ZAB3(11) Where ZPROCESS=1 and ZANNEE=[F:ZFA]ZANNEE-1 and ZREP=[ZFB]ZREP and ZTCLCOD="FP" & ZFCUSGRP=[ZFB]ZFCUSGRP & ZBPDCRY=[ZFB]ZBPDCRY
+For [ZAB]ZAB3(11) Where ZPROCESS=1 and ZANNEE=XANNEE-1 and ZREP=[ZFB]ZREP and ZTCLCOD="FP" & ZFCUSGRP=[ZFB]ZFCUSGRP & ZBPDCRY=[ZFB]ZBPDCRY
+&             & NFINALCUS=[ZFB]NFINALCUS & ZITMREF=[ZFB]ZITMREF & ZEECICT1=[ZFB]ZEECICT1 & ZEECTRN=[ZFB]ZEECTRN & ZSTOFCY=[ZFB]ZSTOFCY & ZCUR=[ZFB]ZCUR
+
+    # Boucle période
+    For [ZAB]ZAB3(12)
+      Raz WQTYPER, WREVPER, WUPFR, WUPES
+      For [ZAB]ZAB3
+        WQTYPER += [ZAB]ZQTYSTU
+        WREVPER += [ZAB]ZAMTNOTLIN
+        WQTY += [ZAB]ZQTYSTU
+        WREV += [ZAB]ZAMTNOTLIN
+        WREVEUR += [ZAB]ZAMTLOCAL
+        WUPFR += [ZAB]ZTRSTD
+        WUPES += [ZAB]ZES
+        # Cumul Year to date
+        #If [ZAB]ZPERNUM<[ZFA]ZPERNUM
+        If [ZAB]ZPERNUM<[ZFA]MONTHYTD
+          WQTYYTD += [ZAB]ZQTYSTU
+          WREVYTD += [ZAB]ZAMTNOTLIN
+          WREVYTDEUR += [ZAB]ZAMTLOCAL
+          WUPFRYTD += [ZAB]ZTRSTD
+          WUPESYTD += [ZAB]ZES
+        Endif
+      Next
+      Assign ("[L]LYQTY"+num$([ZAB]ZPERNUM)) With ar2(evalue("WQTYPER"))
+      Assign ("[L]LYREV"+num$([ZAB]ZPERNUM)) With ar2(evalue("WREVPER"))
+    Next
+Next
+
+# Alimentation valeurs
+[L]LYQTYYTD = ar2(WQTYYTD)
+[L]LYREVYTD = ar2(WREVYTD)
+[L]LYRYTDEUR = ar2(WREVYTDEUR)
+If WQTYYTD<>0
+  [L]LYUPYTD = ar2(WREVYTD/WQTYYTD)
+  [L]LYUPFRYTD = ar2(WUPFRYTD/WQTYYTD)
+  [L]LYUPESYTD = ar2(WUPESYTD/WQTYYTD)
+Endif
+[L]LYUPEXWYTD = [L]LYUPYTD - [L]LYUPFRYTD - [L]LYUPESYTD
+[L]LYQTYTOT = ar2(WQTY)
+[L]LYREVTOT = ar2(WREV)
+[L]LYRTOTEUR = ar2(WREVEUR)
+If WQTY<>0
+  [L]LYUPTOT = ar2(WREV/WQTY)
+  [L]LYUPFRTOT= ar2(WUPFR/WQTY)
+  [L]LYUPESTOT = ar2(WUPES/WQTY)
+Endif
+[L]LYUPEXWTOT = [L]LYUPTOT - [L]LYUPFRTOT - [L]LYUPESTOT
+
+#Call CONVERT3(DEVORG,DEVDES,GDEVSOC,TYPCOURS,DATCOURS,RNDCUR,MTORG,MTDES,STAT) From TRTDEV
+#If [F:ZFA]ZPROCESS=2 #Forecast
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,4,date$,3,[L]LYREVYTD,[L]LYRYTDEUR,ZSTA) From TRTDEV
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,4,date$,3,[L]LYREVTOT,[L]LYRTOTEUR,ZSTA) From TRTDEV
+#Else
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,3,gdat$(01,01,year(date$)+1),3,[L]LYREVYTD,[L]LYRYTDEUR,ZSTA) From TRTDEV
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,3,gdat$(01,01,year(date$)+1),3,[L]LYREVTOT,[L]LYRTOTEUR,ZSTA) From TRTDEV
+#Endif
+
+[L]TABVAL(ZI,26) = num$([L]LYQTY1)
+[L]TABVAL(ZI,27) = num$([L]LYQTY2)
+[L]TABVAL(ZI,28) = num$([L]LYQTY3)
+[L]TABVAL(ZI,29) = num$([L]LYQTY4)
+[L]TABVAL(ZI,30) = num$([L]LYQTY5)
+[L]TABVAL(ZI,31) = num$([L]LYQTY6)
+[L]TABVAL(ZI,32) = num$([L]LYQTY7)
+[L]TABVAL(ZI,33) = num$([L]LYQTY8)
+[L]TABVAL(ZI,34) = num$([L]LYQTY9)
+[L]TABVAL(ZI,35) = num$([L]LYQTY10)
+[L]TABVAL(ZI,36) = num$([L]LYQTY11)
+[L]TABVAL(ZI,37) = num$([L]LYQTY12)
+[L]TABVAL(ZI,38) = num$([L]LYREV1)
+[L]TABVAL(ZI,39) = num$([L]LYREV2)
+[L]TABVAL(ZI,40) = num$([L]LYREV3)
+[L]TABVAL(ZI,41) = num$([L]LYREV4)
+[L]TABVAL(ZI,42) = num$([L]LYREV5)
+[L]TABVAL(ZI,43) = num$([L]LYREV6)
+[L]TABVAL(ZI,44) = num$([L]LYREV7)
+[L]TABVAL(ZI,45) = num$([L]LYREV8)
+[L]TABVAL(ZI,46) = num$([L]LYREV9)
+[L]TABVAL(ZI,47) = num$([L]LYREV10)
+[L]TABVAL(ZI,48) = num$([L]LYREV11)
+[L]TABVAL(ZI,49) = num$([L]LYREV12)
+[L]TABVAL(ZI,50) = num$([L]LYQTYYTD)
+[L]TABVAL(ZI,51) = num$([L]LYREVYTD)
+[L]TABVAL(ZI,52) = num$([L]LYRYTDEUR)
+[L]TABVAL(ZI,53) = num$([L]LYUPYTD)
+[L]TABVAL(ZI,54) = num$([L]LYUPFRYTD)
+[L]TABVAL(ZI,55) = num$([L]LYUPESYTD)
+[L]TABVAL(ZI,56) = num$([L]LYUPEXWYTD)
+[L]TABVAL(ZI,57) = num$([L]LYQTYTOT)
+[L]TABVAL(ZI,58) = num$([L]LYREVTOT)
+[L]TABVAL(ZI,59) = num$([L]LYRTOTEUR)
+[L]TABVAL(ZI,60) = num$([L]LYUPTOT)
+[L]TABVAL(ZI,61) = num$([L]LYUPFRTOT)
+[L]TABVAL(ZI,62) = num$([L]LYUPESTOT)
+[L]TABVAL(ZI,63) = num$([L]LYUPEXWTOT)
+
+
+
+#----- Budget année N
+Raz WQTY, WREV, WQTYYTD, WREVYTD, WREVEUR, WREVYTDEUR
+# on charge les éléments Budget N
+# Seuls les enregistrements "définitifs" validés du budget sont dans ZANATMPBO : un enregistrement par clé/période
+#For [ZAB]ZAB3(11) Where ZPROCESS=3 and ZANNEE=[F:ZFA]ZANNEE and ZREP=[ZFB]ZREP & ZFCUSGRP=[ZFB]ZFCUSGRP & ZBPDCRY=[ZFB]ZBPDCRY
+For [ZAB]ZAB3(11) Where ZPROCESS=3 and ZANNEE=XANNEE and ZREP=[ZFB]ZREP & ZFCUSGRP=[ZFB]ZFCUSGRP & ZBPDCRY=[ZFB]ZBPDCRY
+&             & NFINALCUS=[ZFB]NFINALCUS & ZITMREF=[ZFB]ZITMREF & ZEECICT1=[ZFB]ZEECICT1 & ZEECTRN=[ZFB]ZEECTRN & ZSTOFCY=[ZFB]ZSTOFCY & ZCUR=[ZFB]ZCUR
+
+    # Boucle période
+    For [ZAB]ZAB3(12)
+      Raz WQTYPER, WREVPER
+      For [ZAB]ZAB3
+        WQTYPER += [ZAB]ZQTYSTU
+        WREVPER += [ZAB]ZREV
+        WQTY += [ZAB]ZQTYSTU
+        WREV += [ZAB]ZAMTNOTLIN
+        WREVEUR += [ZAB]ZAMTLOCAL
+        # Cumul Year to date
+        #If [ZAB]ZPERNUM<[ZFA]ZPERNUM
+        If [ZAB]ZPERNUM<[ZFA]MONTHYTD
+          WQTYYTD += [ZAB]ZQTYSTU
+          WREVYTD += [ZAB]ZAMTNOTLIN
+          WREVYTDEUR += [ZAB]ZAMTLOCAL
+        Endif
+      Next
+      Assign ("[L]BUQTY"+num$([ZAB]ZPERNUM)) With ar2(evalue("WQTYPER"))
+      Assign ("[L]BUREV"+num$([ZAB]ZPERNUM)) With ar2(evalue("WREVPER"))
+    Next
+Next
+
+# Alimentation valeurs
+[L]BUQTYYTD = ar2(WQTYYTD)
+[L]BUREVYTD = ar2(WREVYTD)
+[L]BURYTDEUR = ar2(WREVYTDEUR)
+If WQTYYTD<>0 : [L]BUUPYTD = ar2(WREVYTD/WQTYYTD) : Endif
+[L]BUQTYTOT = ar2(WQTY)
+[L]BUREVTOT = ar2(WREV)
+[L]BURTOTEUR = ar2(WREVEUR)
+If WQTY<>0 : [L]BUUPTOT = ar2(WREV/WQTY) : Endif
+[L]BUUPEXWTOT = [L]BUUPTOT - [L]BUUPFRTOT - [L]BUUPESTOT
+
+#Call CONVERT3(DEVORG,DEVDES,GDEVSOC,TYPCOURS,DATCOURS,RNDCUR,MTORG,MTDES,STAT) From TRTDEV
+#If [F:ZFA]ZPROCESS=2 #Forecast
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,4,date$,3,[L]BUREVYTD,[L]BURYTDEUR,ZSTA) From TRTDEV
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,4,date$,3,[L]BUREVTOT,[L]BURTOTEUR,ZSTA) From TRTDEV
+#Else
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,3,gdat$(01,01,year(date$)+1),3,[L]BUREVYTD,[L]BURYTDEUR,ZSTA) From TRTDEV
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,3,gdat$(01,01,year(date$)+1),3,[L]BUREVTOT,[L]BURTOTEUR,ZSTA) From TRTDEV
+#Endif
+
+[L]TABVAL(ZI,64) = num$([L]BUQTY1)
+[L]TABVAL(ZI,65) = num$([L]BUQTY2)
+[L]TABVAL(ZI,66) = num$([L]BUQTY3)
+[L]TABVAL(ZI,67) = num$([L]BUQTY4)
+[L]TABVAL(ZI,68) = num$([L]BUQTY5)
+[L]TABVAL(ZI,69) = num$([L]BUQTY6)
+[L]TABVAL(ZI,70) = num$([L]BUQTY7)
+[L]TABVAL(ZI,71) = num$([L]BUQTY8)
+[L]TABVAL(ZI,72) = num$([L]BUQTY9)
+[L]TABVAL(ZI,73) = num$([L]BUQTY10)
+[L]TABVAL(ZI,74) = num$([L]BUQTY11)
+[L]TABVAL(ZI,75) = num$([L]BUQTY12)
+[L]TABVAL(ZI,76) = num$([L]BUREV1)
+[L]TABVAL(ZI,77) = num$([L]BUREV2)
+[L]TABVAL(ZI,78) = num$([L]BUREV3)
+[L]TABVAL(ZI,79) = num$([L]BUREV4)
+[L]TABVAL(ZI,80) = num$([L]BUREV5)
+[L]TABVAL(ZI,81) = num$([L]BUREV6)
+[L]TABVAL(ZI,82) = num$([L]BUREV7)
+[L]TABVAL(ZI,83) = num$([L]BUREV8)
+[L]TABVAL(ZI,84) = num$([L]BUREV9)
+[L]TABVAL(ZI,85) = num$([L]BUREV10)
+[L]TABVAL(ZI,86) = num$([L]BUREV11)
+[L]TABVAL(ZI,87) = num$([L]BUREV12)
+[L]TABVAL(ZI,88) = num$([L]BUQTYYTD)
+[L]TABVAL(ZI,89) = num$([L]BUREVYTD)
+[L]TABVAL(ZI,90) = num$([L]BURYTDEUR)
+[L]TABVAL(ZI,91) = num$([L]BUUPYTD)
+[L]TABVAL(ZI,92) = num$([L]BUQTYTOT)
+[L]TABVAL(ZI,93) = num$([L]BUREVTOT)
+[L]TABVAL(ZI,94) = num$([L]BURTOTEUR)
+[L]TABVAL(ZI,95) = num$([L]BUUPTOT)
+[L]TABVAL(ZI,96) = num$([L]BUUPFRTOT)
+[L]TABVAL(ZI,97) = num$([L]BUUPESTOT)
+[L]TABVAL(ZI,98) = num$([L]BUUPEXWTOT)
+
+
+
+#----- Last Forecast : basé sur le dernier Forecast enregistré
+Raz WQTY, WREV, WQTYYTD, WREVYTD, WREVEUR, WREVYTDEUR
+# Seuls les enregistrements "définitifs" validés du forecast sont dans ZANATMPBO : un enregistrment par clé/période
+
+#For [ZAB]ZAB3(11) Where ZPROCESS=2 and ZANNEE=[F:ZFA]ZANNEE and ZREP=[ZFB]ZREP & ZFCUSGRP=[ZFB]ZFCUSGRP & ZBPDCRY=[ZFB]ZBPDCRY
+For [ZAB]ZAB3(11) Where ZPROCESS=2 and ZANNEE=XANNEE and ZREP=[ZFB]ZREP & ZFCUSGRP=[ZFB]ZFCUSGRP & ZBPDCRY=[ZFB]ZBPDCRY
+&             & NFINALCUS=[ZFB]NFINALCUS & ZITMREF=[ZFB]ZITMREF & ZEECICT1=[ZFB]ZEECICT1 & ZEECTRN=[ZFB]ZEECTRN & ZSTOFCY=[ZFB]ZSTOFCY & ZCUR=[ZFB]ZCUR
+
+    # Boucle période
+    For [ZAB]ZAB3(12)
+      Raz WQTYPER, WREVPER
+      For [ZAB]ZAB3
+        WQTYPER += [ZAB]ZQTYSTU
+        WREVPER += [ZAB]ZREV
+        WQTY += [ZAB]ZQTYSTU
+        WREV += [ZAB]ZAMTNOTLIN
+        WREVEUR += [ZAB]ZAMTLOCAL
+        # Cumul Year to date
+        #If [ZAB]ZPERNUM<[ZFA]ZPERNUM
+        If [ZAB]ZPERNUM<[ZFA]MONTHYTD
+          WQTYYTD += [ZAB]ZQTYSTU
+          WREVYTD += [ZAB]ZAMTNOTLIN
+          WREVYTDEUR += [ZAB]ZAMTLOCAL
+        Endif
+      Next
+      Assign ("[L]LFQTY"+num$([ZAB]ZPERNUM)) With ar2(evalue("WQTYPER"))
+      Assign ("[L]LFREV"+num$([ZAB]ZPERNUM)) With ar2(evalue("WREVPER"))
+    Next
+Next
+
+# Alimentation valeurs
+[L]LFQTYYTD = ar2(WQTYYTD)
+[L]LFREVYTD = ar2(WREVYTD)
+If WQTYYTD<>0 : [L]LFUPYTD = ar2(WREVYTD/WQTYYTD) : Endif
+[L]LFQTYTOT = ar2(WQTY)
+[L]LFREVTOT = ar2(WREV)
+[L]LFRTOTEUR = ar2(WREVEUR)
+If WQTY<>0 : [L]LFUPTOT = ar2(WREV/WQTY) : Endif
+
+#Call CONVERT3(DEVORG,DEVDES,GDEVSOC,TYPCOURS,DATCOURS,RNDCUR,MTORG,MTDES,STAT) From TRTDEV
+#If [F:ZFA]ZPROCESS=2 #Forecast
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,4,date$,3,[L]LFREVTOT,[L]LFRTOTEUR,ZSTA) From TRTDEV
+#Else
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,3,gdat$(01,01,year(date$)+1),3,[L]LFREVTOT,[L]LFRTOTEUR,ZSTA) From TRTDEV
+#Endif
+
+[L]TABVAL(ZI,99) = num$([L]LFQTY1)
+[L]TABVAL(ZI,100) = num$([L]LFQTY2)
+[L]TABVAL(ZI,101) = num$([L]LFQTY3)
+[L]TABVAL(ZI,102) = num$([L]LFQTY4)
+[L]TABVAL(ZI,103) = num$([L]LFQTY5)
+[L]TABVAL(ZI,104) = num$([L]LFQTY6)
+[L]TABVAL(ZI,105) = num$([L]LFQTY7)
+[L]TABVAL(ZI,106) = num$([L]LFQTY8)
+[L]TABVAL(ZI,107) = num$([L]LFQTY9)
+[L]TABVAL(ZI,108) = num$([L]LFQTY10)
+[L]TABVAL(ZI,109) = num$([L]LFQTY11)
+[L]TABVAL(ZI,110) = num$([L]LFQTY12)
+[L]TABVAL(ZI,111) = num$([L]LFREV1)
+[L]TABVAL(ZI,112) = num$([L]LFREV2)
+[L]TABVAL(ZI,113) = num$([L]LFREV3)
+[L]TABVAL(ZI,114) = num$([L]LFREV4)
+[L]TABVAL(ZI,115) = num$([L]LFREV5)
+[L]TABVAL(ZI,116) = num$([L]LFREV6)
+[L]TABVAL(ZI,117) = num$([L]LFREV7)
+[L]TABVAL(ZI,118) = num$([L]LFREV8)
+[L]TABVAL(ZI,119) = num$([L]LFREV9)
+[L]TABVAL(ZI,120) = num$([L]LFREV10)
+[L]TABVAL(ZI,121) = num$([L]LFREV11)
+[L]TABVAL(ZI,122) = num$([L]LFREV12)
+[L]TABVAL(ZI,123) = num$([L]LFQTYYTD)
+[L]TABVAL(ZI,124) = num$([L]LFREVYTD)
+[L]TABVAL(ZI,125) = num$([L]LFUPYTD)
+[L]TABVAL(ZI,126) = num$([L]LFQTYTOT)
+[L]TABVAL(ZI,127) = num$([L]LFREVTOT)
+[L]TABVAL(ZI,128) = num$([L]LFRTOTEUR)
+[L]TABVAL(ZI,129) = num$([L]LFUPTOT)
+
+
+#----- Budget année N+1
+Raz WQTY, WREV, WQTYYTD, WREVYTD, WREVEUR, WREVYTDEUR
+# on charge les éléments Budget N+1
+# Seuls les enregistrements "définitifs" validés du budget sont dans ZANATMPBO : un enregistrment par clé/période
+
+#For [ZAB]ZAB3(11) Where ZPROCESS=3 and ZANNEE=[F:ZFA]ZANNEE+1 and ZREP=[ZFB]ZREP & ZFCUSGRP=[ZFB]ZFCUSGRP & ZBPDCRY=[ZFB]ZBPDCRY
+For [ZAB]ZAB3(11) Where ZPROCESS=3 and ZANNEE=XANNEE+1 and ZREP=[ZFB]ZREP & ZFCUSGRP=[ZFB]ZFCUSGRP & ZBPDCRY=[ZFB]ZBPDCRY
+&             & NFINALCUS=[ZFB]NFINALCUS & ZITMREF=[ZFB]ZITMREF & ZEECICT1=[ZFB]ZEECICT1 & ZEECTRN=[ZFB]ZEECTRN & ZSTOFCY=[ZFB]ZSTOFCY & ZCUR=[ZFB]ZCUR
+
+    # Boucle période
+    For [ZAB]ZAB3(12)
+      Raz WQTYPER, WREVPER
+      For [ZAB]ZAB3
+        WQTYPER += [ZAB]ZQTYSTU
+        WREVPER += [ZAB]ZREV
+        WQTY += [ZAB]ZQTYSTU
+        WREV += [ZAB]ZAMTNOTLIN
+        WREVEUR += [ZAB]ZAMTLOCAL
+        # Cumul Year to date
+        #If [ZAB]ZPERNUM<[ZFA]ZPERNUM
+        If [ZAB]ZPERNUM<[ZFA]MONTHYTD
+          WQTYYTD += [ZAB]ZQTYSTU
+          WREVYTD += [ZAB]ZAMTNOTLIN
+          WREVYTDEUR += [ZAB]ZAMTLOCAL
+        Endif
+      Next
+      Assign ("[L]NYQTY"+num$([ZAB]ZPERNUM)) With ar2(evalue("WQTYPER"))
+      Assign ("[L]NYREV"+num$([ZAB]ZPERNUM)) With ar2(evalue("WREVPER"))
+    Next
+Next
+
+# Alimentation valeurs
+[L]NYQTYYTD = ar2(WQTYYTD)
+[L]NYREVYTD = ar2(WREVYTD)
+If WQTYYTD<>0 : [L]NYUPYTD = ar2(WREVYTD/WQTYYTD) : Endif
+[L]NYQTYTOT = ar2(WQTY)
+[L]NYREVTOT = ar2(WREV)
+[L]NYRTOTEUR = ar2(WREVEUR)
+If WQTY<>0 : [L]NYUPTOT = ar2(WREV/WQTY) : Endif
+[L]NYUPEXWTOT = [L]NYUPTOT - [L]NYUPFRTOT - [L]NYUPESTOT
+
+#Call CONVERT3(DEVORG,DEVDES,GDEVSOC,TYPCOURS,DATCOURS,RNDCUR,MTORG,MTDES,STAT) From TRTDEV
+#If [F:ZFA]ZPROCESS=2 #Forecast
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,4,date$,3,[L]NYREVTOT,[L]NYRTOTEUR,ZSTA) From TRTDEV
+#Else
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,3,gdat$(01,01,year(date$)+1),3,[L]NYREVTOT,[L]NYRTOTEUR,ZSTA) From TRTDEV
+#Endif
+
+[L]TABVAL(ZI,130) = num$([L]NYQTY1)
+[L]TABVAL(ZI,131) = num$([L]NYQTY2)
+[L]TABVAL(ZI,132) = num$([L]NYQTY3)
+[L]TABVAL(ZI,133) = num$([L]NYQTY4)
+[L]TABVAL(ZI,134) = num$([L]NYQTY5)
+[L]TABVAL(ZI,135) = num$([L]NYQTY6)
+[L]TABVAL(ZI,136) = num$([L]NYQTY7)
+[L]TABVAL(ZI,137) = num$([L]NYQTY8)
+[L]TABVAL(ZI,138) = num$([L]NYQTY9)
+[L]TABVAL(ZI,139) = num$([L]NYQTY10)
+[L]TABVAL(ZI,140) = num$([L]NYQTY11)
+[L]TABVAL(ZI,141) = num$([L]NYQTY12)
+[L]TABVAL(ZI,142) = num$([L]NYQTYTOT)
+[L]TABVAL(ZI,143) = num$([L]NYREVTOT)
+[L]TABVAL(ZI,144) = num$([L]NYRTOTEUR)
+[L]TABVAL(ZI,145) = num$([L]NYUPTOT)
+[L]TABVAL(ZI,146) = num$([L]NYUPFRTOT)
+[L]TABVAL(ZI,147) = num$([L]NYUPESTOT)
+[L]TABVAL(ZI,148) = num$([L]NYUPEXWTOT)
+
+
+#----- Actuals "year to date" année N
+Raz WQTY, WREV, WQTYYTD, WREVYTD, WUPFRYTD, WUPESYTD, WREVEUR, WREVYTDEUR
+# on charge les éléments Actuals N jusqu'au mois demandé
+
+#For [ZAB]ZAB3(11) Where ZPROCESS=1 and ZANNEE=[F:ZFA]ZANNEE and ZPERNUM<[F:ZFA]ZPERNUM and ZREP=[ZFB]ZREP and ZTCLCOD="FP" & ZFCUSGRP=[ZFB]ZFCUSGRP & ZBPDCRY=[ZFB]ZBPDCRY
+For [ZAB]ZAB3(11) Where ZPROCESS=1 and ZANNEE=XANNEE and ZPERNUM<[F:ZFA]MONTHYTD and ZREP=[ZFB]ZREP and ZTCLCOD="FP" & ZFCUSGRP=[ZFB]ZFCUSGRP & ZBPDCRY=[ZFB]ZBPDCRY
+&             & NFINALCUS=[ZFB]NFINALCUS & ZITMREF=[ZFB]ZITMREF & ZEECICT1=[ZFB]ZEECICT1 & ZEECTRN=[ZFB]ZEECTRN & ZSTOFCY=[ZFB]ZSTOFCY & ZCUR=[ZFB]ZCUR
+
+    # Boucle période
+    For [ZAB]ZAB3(12)
+      Raz WQTYPER, WREVPER
+      For [ZAB]ZAB3
+        #If [ZAB]ZPERNUM<[ZFA]ZPERNUM
+        If [ZAB]ZPERNUM<[ZFA]MONTHYTD
+          #WQTYPER += [ZAB]ZQTYSTU
+          WREVPER += [ZAB]ZAMTNOTLIN
+          #WQTY += [ZAB]ZQTYSTU
+          #WREV += [ZAB]ZAMTNOTLIN
+          #WREVEUR += [ZAB]ZAMTLOCAL
+
+          # Cumul Year to date
+          WQTYYTD += [ZAB]ZQTYSTU
+          WREVYTD += [ZAB]ZAMTNOTLIN
+          WREVYTDEUR += [ZAB]ZAMTLOCAL
+          WUPFRYTD += [ZAB]ZTRSTD
+          WUPESYTD += [ZAB]ZES
+        Endif
+      Next
+      #If [ZAB]ZPERNUM<[ZFA]ZPERNUM
+      If [ZAB]ZPERNUM<[ZFA]MONTHYTD
+        Assign ("[L]ACTREV"+num$([ZAB]ZPERNUM)) With ar2(evalue("WREVPER"))
+      Endif
+      #If [ZAB]ZPERNUM<[ZFA]ZPERNUM
+        # Alimentation quantité période du forecast en cours pour les périodes antérieures (et coeff de ventilation à zéro)
+        ## Maintenant fait au niveau ZFORBUD pour toutes les quantités par périodes
+        #Assign ("[L]QTYPER"+num$([ZAB]ZPERNUM)) With ar2(evalue("WQTYPER"))
+        #Assign ("[L]COEFF"+num$([ZAB]ZPERNUM)) With 0
+      #Endif
+    Next
+Next
+
+# Alimentation valeurs
+[L]ACTQTYYTD = ar2(WQTYYTD)
+[L]ACTREVYTD = ar2(WREVYTD)
+[L]ACTRYTDEUR = ar2(WREVYTDEUR)
+If WQTYYTD<>0
+  [L]ACTUPYTD = ar2(WREVYTD/WQTYYTD)
+  [L]ACTUPFRYTD= ar2(WUPFRYTD/WQTYYTD)
+  [L]ACTUPESYTD = ar2(WUPESYTD/WQTYYTD)
+Endif
+[L]ACTUPEXWYTD = [L]ACTUPYTD - [L]ACTUPFRYTD - [L]ACTUPESYTD
+
+#Call CONVERT3(DEVORG,DEVDES,GDEVSOC,TYPCOURS,DATCOURS,RNDCUR,MTORG,MTDES,STAT) From TRTDEV
+#If [F:ZFA]ZPROCESS=2 #Forecast
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,4,date$,3,[L]ACTREVYTD,[L]ACTRYTDEUR,ZSTA) From TRTDEV
+#Else
+#  Call CONVERT3([L]TABVAL(ZI,23),"EUR",GDEVSOC,3,gdat$(01,01,year(date$)+1),3,[L]ACTREVYTD,[L]ACTRYTDEUR,ZSTA) From TRTDEV
+#Endif
+
+[L]TABVAL(ZI,149) = num$([L]ACTREV1)
+[L]TABVAL(ZI,150) = num$([L]ACTREV2)
+[L]TABVAL(ZI,151) = num$([L]ACTREV3)
+[L]TABVAL(ZI,152) = num$([L]ACTREV4)
+[L]TABVAL(ZI,153) = num$([L]ACTREV5)
+[L]TABVAL(ZI,154) = num$([L]ACTREV6)
+[L]TABVAL(ZI,155) = num$([L]ACTREV7)
+[L]TABVAL(ZI,156) = num$([L]ACTREV8)
+[L]TABVAL(ZI,157) = num$([L]ACTREV9)
+[L]TABVAL(ZI,158) = num$([L]ACTREV10)
+[L]TABVAL(ZI,159) = num$([L]ACTREV11)
+[L]TABVAL(ZI,160) = num$([L]ACTREV12)
+[L]TABVAL(ZI,161) = num$([L]ACTQTYYTD)
+[L]TABVAL(ZI,162) = num$([L]ACTREVYTD)
+[L]TABVAL(ZI,163) = num$([L]ACTRYTDEUR)
+[L]TABVAL(ZI,164) = num$([L]ACTUPYTD)
+[L]TABVAL(ZI,165) = num$([L]ACTUPFRYTD)
+[L]TABVAL(ZI,166) = num$([L]ACTUPESYTD)
+[L]TABVAL(ZI,167) = num$([L]ACTUPEXWYTD)
+
+#--- Budget forecast en cours dans ZFORBUD
+# On complète ou on charge les clés de l'écran détail à partir de ZFORBUD
+Raz [ZMC]
+Raz YDELTA,ZPERSUM
+
+Read [ZMC]ZMC0 = [F:ZFB]ZMARKSBID;[F:ZFB]ZBPDCRY
+# Si enregistrement non existant on le calcul par défaut pour pouvoir déterminer les coeff de ventilation
+If fstat<>0 or [F:ZMC]ZTOTPER=0
+  For ZL=1 To 12
+    Assign ("[F:ZMC]ZPER"+num$(ZL)) With ar2(100/12)
+   [F:ZMC]ZTOTPER+= evalue("[F:ZMC]ZPER"+num$(ZL))
+  Next
+  YDELTA = ar2(100-[F:ZMC]ZTOTPER)
+  [F:ZMC]ZPER9 += YDELTA
+Endif
+# Boucle somme des période saisissables
+For ZL = [L]XPERNUM To 12
+  ZPERSUM += evalue("[ZMC]ZPER"+num$(ZL))
+Next
+# Boucle période
+For ZK = 1 To 12
+  # Alimentation quantité période du forecast en cours pour toutes les périodes
+  Assign ("[L]QTYPER"+num$(ZK)) With ar2(evalue("[ZFB]ZQTYPER("+num$(ZK-1)+")"))
+Next
+For ZK = 1 To [L]XPERNUM-1
+  Assign ("[L]COEFF"+num$(ZK)) With 0
+Next
+For ZK = [L]XPERNUM To 12
+  If ZPERSUM<>0
+    Assign ("[L]COEFF"+num$(ZK)) With arr(evalue("[ZMC]ZPER"+num$(ZK)+"/ZPERSUM"),0.0001)
+  Endif
+Next
+
+# Quantité et revenu Actuals à l'initialisation du forrecast
+[L]TABVAL(ZI,168) = num$(ar2([ZFB]AN0QTY))
+[L]TABVAL(ZI,169) = num$(ar2([ZFB]AN0REV))
+
+
+# Alimentation valeurs
+[L]TABVAL(ZI,170) = num$(ar2([L]QTYPER1))
+[L]TABVAL(ZI,171) = num$(ar2([L]QTYPER2))
+[L]TABVAL(ZI,172) = num$(ar2([L]QTYPER3))
+[L]TABVAL(ZI,173) = num$(ar2([L]QTYPER4))
+[L]TABVAL(ZI,174) = num$(ar2([L]QTYPER5))
+[L]TABVAL(ZI,175) = num$(ar2([L]QTYPER6))
+[L]TABVAL(ZI,176) = num$(ar2([L]QTYPER7))
+[L]TABVAL(ZI,177) = num$(ar2([L]QTYPER8))
+[L]TABVAL(ZI,178) = num$(ar2([L]QTYPER9))
+[L]TABVAL(ZI,179) = num$(ar2([L]QTYPER10))
+[L]TABVAL(ZI,180) = num$(ar2([L]QTYPER11))
+[L]TABVAL(ZI,181) = num$(ar2([L]QTYPER12))
+#[L]TABVAL(ZI,182) = num$(ar2([F:ZFB]ZQTYSTU))
+[L]TABVAL(ZI,182) = num$([L]QTYPER1+[L]QTYPER2+[L]QTYPER3+[L]QTYPER4+[L]QTYPER5+[L]QTYPER6+[L]QTYPER7+[L]QTYPER8+[L]QTYPER9+[L]QTYPER10+[L]QTYPER11+[L]QTYPER12)
+[L]TABVAL(ZI,183) = num$(ar2([F:ZFB]ZUNIPRI))
+If [F:ZFB]ZUNIPRI=0
+  If val([L]TABVAL(ZI,60))<>0
+   [L]TABVAL(ZI,183) = [L]TABVAL(ZI,60)
+  Elsif val([L]TABVAL(ZI,129))<>0
+   [L]TABVAL(ZI,183) = [L]TABVAL(ZI,129)
+  Else
+   [L]TABVAL(ZI,183) = [L]TABVAL(ZI,95)
+  Endif
+Endif
+# Période pivot et prix unitaire 2
+[L]TABVAL(ZI,184) = num$([F:ZFB]ZPERPIV)
+If [L]TABVAL(ZI,184) = "0"
+  [L]TABVAL(ZI,184) = "12"
+Endif
+[L]TABVAL(ZI,185) = num$(ar2([F:ZFB]ZUNIPRI2))
+If [L]TABVAL(ZI,185) = "0"
+  [L]TABVAL(ZI,185) = [L]TABVAL(ZI,183)
+Endif
+
+
+Raz [L]YTXEUR
+If [F:ZFA]ZPROCESS=2
+  Call CONVERT([L]TABVAL(ZI,25),"EUR",GDEVSOC,4,date$,10^GDECRCU,[L]YTXEUR,ZSTA) From TRTDEV
+Else
+  Call CONVERT([L]TABVAL(ZI,25),"EUR",GDEVSOC,3,gdat$(01,01,year(date$)+1),10^GDECRCU,[L]YTXEUR,ZSTA) From TRTDEV
+Endif
+If !ZSTA : [L]YTXEUR = arr([L]YTXEUR/10^GDECRCU, 10^-GDECRCU) : Endif
+
+# Gestion de la quantité totale saisie (mois ouverts)
+YQPER(1)  = "RC171+"
+YQPER(2)  = "RC172+"
+YQPER(3)  = "RC173+"
+YQPER(4)  = "RC174+"
+YQPER(5)  = "RC175+"
+YQPER(6)  = "RC176+"
+YQPER(7)  = "RC177+"
+YQPER(8)  = "RC178+"
+YQPER(9)  = "RC179+"
+YQPER(10) = "RC180+"
+YQPER(11) = "RC181+"
+YQPER(12) = "RC182"
+
+# Calcul des quantité selon le mois pivot pour application de prix unitaires différents
+[L]TABVAL(ZI,209) = "=IF(RC185>=RC4,SUM(OFFSET(RC171,0,RC4-1):OFFSET(RC171,0,MIN(RC185-1,11))),0)"
+[L]TABVAL(ZI,210) = "=IF(AND(RC185>=RC4,RC185<12),SUM(OFFSET(RC171,0,RC185):RC182),RC212)"
+[L]TABVAL(ZI,211) = "=IF(RC185>=12,0,RC183-RC169)"
+#[L]TABVAL(ZI,211) = "=IF(RC185>=12,0,SUM(OFFSET(RC171,0,RC4-1):RC182))"
+
+# Valeurs calculées
+[L]TABVAL(ZI,186) = "=RC170+(RC210*RC184)+(RC211*RC186)"
+[L]TABVAL(ZI,187) = "=RC187*"+num$(YTXEUR)
+[L]TABVAL(ZI,188) = "=IF(MAX(ABS(RC183),ABS(RC58))<>0,(RC183-RC58)/MAX(ABS(RC183),ABS(RC58)),0)"
+[L]TABVAL(ZI,191) = "=IF(MAX(ABS(RC184),ABS(RC61))<>0,(RC184-RC61)/MAX(ABS(RC184),ABS(RC61)),0)"
+[L]TABVAL(ZI,189) = "=IF(MAX(ABS(RC183),ABS(RC93))<>0,(RC183-RC93)/MAX(ABS(RC183),ABS(RC93)),0)"
+[L]TABVAL(ZI,192) = "=IF(MAX(ABS(RC184),ABS(RC96))<>0,(RC184-RC96)/MAX(ABS(RC184),ABS(RC96)),0)"
+[L]TABVAL(ZI,190) = "=IF(MAX(ABS(RC183),ABS(RC127))<>0,(RC183-RC127)/MAX(ABS(RC183),ABS(RC127)),0)"
+[L]TABVAL(ZI,193) = "=IF(MAX(ABS(RC184),ABS(RC130))<>0,(RC184-RC130)/MAX(ABS(RC184),ABS(RC130)),0)"
+
+# Champ de remarque à vide
+[L]TABVAL(ZI,194) = ""
+[L]TABVAL(ZI,195) = ""
+[L]TABVAL(ZI,196) = ""
+
+# Coefficients de ventilation
+[L]YFORMCOEFF = "=ROUND((RC183-RC169)*"
+[L]TABVAL(ZI,197) = [L]YFORMCOEFF+num$([L]COEFF1)+",2)"
+[L]TABVAL(ZI,198) = [L]YFORMCOEFF+num$([L]COEFF2)+",2)"
+[L]TABVAL(ZI,199) = [L]YFORMCOEFF+num$([L]COEFF3)+",2)"
+[L]TABVAL(ZI,200) = [L]YFORMCOEFF+num$([L]COEFF4)+",2)"
+[L]TABVAL(ZI,201) = [L]YFORMCOEFF+num$([L]COEFF5)+",2)"
+[L]TABVAL(ZI,202) = [L]YFORMCOEFF+num$([L]COEFF6)+",2)"
+[L]TABVAL(ZI,203) = [L]YFORMCOEFF+num$([L]COEFF7)+",2)"
+[L]TABVAL(ZI,204) = [L]YFORMCOEFF+num$([L]COEFF8)+",2)"
+[L]TABVAL(ZI,205) = [L]YFORMCOEFF+num$([L]COEFF9)+",2)"
+[L]TABVAL(ZI,206) = [L]YFORMCOEFF+num$([L]COEFF10)+",2)"
+[L]TABVAL(ZI,207) = [L]YFORMCOEFF+num$([L]COEFF11)+",2)"
+[L]TABVAL(ZI,208) = [L]YFORMCOEFF+num$([L]COEFF12)+",2)"
+
+# Si on n'ajoute pas les budgets on retourne au programme principal
+If [ZFA]ZFLGBUD<>2 : Return : Endif
+
+#==========================================
+#--- Budget en cours dans ZFORBUD pour ajout aux colonnes du forecast
+# On complète ou on charge les clés de l'écran détail à partir de ZFORBUD
+Raz [ZMC]
+Raz YDELTA,ZPERSUM
+
+For [ZFB1]ZFB0 Where ZPROCESS=3 and ZANNEE=[F:ZFA]ZANNEE+1 and ZPERNUM=0 and ZLVL=[F:ZFA]ZLVL and ZREP=[ZFB]ZREP & ZFCUSGRP=[ZFB]ZFCUSGRP & ZBPDCRY=[ZFB]ZBPDCRY
+&             & NFINALCUS=[ZFB]NFINALCUS & ZITMREF=[ZFB]ZITMREF & ZEECICT1=[ZFB]ZEECICT1 & ZEECTRN=[ZFB]ZEECTRN & ZSTOFCY=[ZFB]ZSTOFCY & ZCUR=[ZFB]ZCUR
+
+  Read [ZMC]ZMC0 = [F:ZFB]ZMARKSBID;[F:ZFB]ZBPDCRY
+  # Si enregistrement non existant on le calcul par défaut pour pouvoir déterminer les coeff de ventilation
+  If fstat<>0 or [F:ZMC]ZTOTPER=0
+    For ZL=1 To 12
+      Assign ("[F:ZMC]ZPER"+num$(ZL)) With ar2(100/12)
+     [F:ZMC]ZTOTPER+= evalue("[F:ZMC]ZPER"+num$(ZL))
+    Next
+    YDELTA = ar2(100-[F:ZMC]ZTOTPER)
+    [F:ZMC]ZPER9 += YDELTA
+  Endif
+  # Boucle somme des période saisissables
+  For ZL = 1 To 12
+    ZPERSUM += evalue("[ZMC]ZPER"+num$(ZL))
+  Next
+  # Boucle période
+  For ZK = 1 To 12
+    # Alimentation quantité période du forecast en cours pour les périodes à forcecaster
+    Assign ("[L]BQTYPER"+num$(ZK)) With ar2(evalue("[ZFB1]ZQTYPER("+num$(ZK-1)+")"))
+    If ZPERSUM<>0
+      Assign ("[L]BCOEFF"+num$(ZK)) With arr(evalue("[ZMC]ZPER"+num$(ZK)+"/ZPERSUM"),0.0001)
+    Endif
+  Next
+Next
+# Alimentation valeurs
+[L]TABVAL(ZI,212) = num$(ar2([L]BQTYPER1))
+[L]TABVAL(ZI,213) = num$(ar2([L]BQTYPER2))
+[L]TABVAL(ZI,214) = num$(ar2([L]BQTYPER3))
+[L]TABVAL(ZI,215) = num$(ar2([L]BQTYPER4))
+[L]TABVAL(ZI,216) = num$(ar2([L]BQTYPER5))
+[L]TABVAL(ZI,217) = num$(ar2([L]BQTYPER6))
+[L]TABVAL(ZI,218) = num$(ar2([L]BQTYPER7))
+[L]TABVAL(ZI,219) = num$(ar2([L]BQTYPER8))
+[L]TABVAL(ZI,220) = num$(ar2([L]BQTYPER9))
+[L]TABVAL(ZI,221) = num$(ar2([L]BQTYPER10))
+[L]TABVAL(ZI,222) = num$(ar2([L]BQTYPER11))
+[L]TABVAL(ZI,223) = num$(ar2([L]BQTYPER12))
+#[L]TABVAL(ZI,224) = num$(ar2([F:ZFB1]ZQTYSTU))
+[L]TABVAL(ZI,224) = num$([L]BQTYPER1+[L]BQTYPER2+[L]BQTYPER3+[L]BQTYPER4+[L]BQTYPER5+[L]BQTYPER6+[L]BQTYPER7+[L]BQTYPER8+[L]BQTYPER9+[L]BQTYPER10+[L]BQTYPER11+[L]BQTYPER12)
+[L]TABVAL(ZI,225) = num$(ar2([F:ZFB1]ZUNIPRI))
+If [F:ZFB]ZUNIPRI=0
+If val([L]TABVAL(ZI,60))<>0
+ [L]TABVAL(ZI,225) = [L]TABVAL(ZI,60)
+Elsif val([L]TABVAL(ZI,129))<>0
+ [L]TABVAL(ZI,225) = [L]TABVAL(ZI,129)
+Else
+ [L]TABVAL(ZI,225) = [L]TABVAL(ZI,95)
+Endif
+Endif
+# Période pivot et prix unitaire 2
+[L]TABVAL(ZI,226) = num$([F:ZFB1]ZPERPIV)
+If [L]TABVAL(ZI,226) = "0"
+ [L]TABVAL(ZI,226) = "12"
+Endif
+[L]TABVAL(ZI,227) = num$(ar2([F:ZFB1]ZUNIPRI2))
+If [L]TABVAL(ZI,227) = "0"
+ [L]TABVAL(ZI,227) = [L]TABVAL(ZI,225)
+Endif
+
+Raz [L]YTXEUR
+Call CONVERT([L]TABVAL(ZI,25),"EUR",GDEVSOC,3,gdat$(01,01,year(date$)+1),10^GDECRCU,[L]YTXEUR,ZSTA) From TRTDEV
+If !ZSTA : [L]YTXEUR = arr([L]YTXEUR/10^GDECRCU, 10^-GDECRCU) : Endif
+
+# Gestion de la quantité totale saisie (mois ouverts)
+YQPER(1)  = "RC213+"
+YQPER(2)  = "RC214+"
+YQPER(3)  = "RC215+"
+YQPER(4)  = "RC216+"
+YQPER(5)  = "RC217+"
+YQPER(6)  = "RC218+"
+YQPER(7)  = "RC219+"
+YQPER(8)  = "RC220+"
+YQPER(9)  = "RC221+"
+YQPER(10) = "RC222+"
+YQPER(11) = "RC223+"
+YQPER(12) = "RC224"
+
+# Pour le budget on commence toujours à la période 1 : pas d'actuals
+[L]TABVAL(ZI,246) = "=SUM(RC213:OFFSET(RC213,0,MIN(RC227-1,11)))"
+[L]TABVAL(ZI,247) = "=IF(AND(RC227>0,RC227<12),SUM(OFFSET(RC213,0,RC227):RC224),0)"
+
+# Valeurs calculées
+[L]TABVAL(ZI,228) = "=(RC247*RC226)+(RC248*RC228)"
+[L]TABVAL(ZI,229) = "=RC229*"+num$(YTXEUR)
+[L]TABVAL(ZI,230) = "=IF(MAX(ABS(RC225),ABS(RC58))<>0,(RC225-RC58)/MAX(ABS(RC225),ABS(RC58)),0)"
+[L]TABVAL(ZI,232) = "=IF(MAX(ABS(RC226),ABS(RC61))<>0,(RC226-RC61)/MAX(ABS(RC226),ABS(RC61)),0)"
+[L]TABVAL(ZI,231) = "=IF(MAX(ABS(RC225),ABS(RC93))<>0,(RC225-RC93)/MAX(ABS(RC225),ABS(RC93)),0)"
+[L]TABVAL(ZI,233) = "=IF(MAX(ABS(RC226),ABS(RC96))<>0,(RC226-RC96)/MAX(ABS(RC226),ABS(RC96)),0)"
+
+# Coefficients de ventilation
+BFORMCOEFF = "=ROUND((RC225)*"
+[L]TABVAL(ZI,234) = BFORMCOEFF+num$([L]COEFF1)+",2)"
+[L]TABVAL(ZI,235) = BFORMCOEFF+num$([L]COEFF2)+",2)"
+[L]TABVAL(ZI,236) = BFORMCOEFF+num$([L]COEFF3)+",2)"
+[L]TABVAL(ZI,237) = BFORMCOEFF+num$([L]COEFF4)+",2)"
+[L]TABVAL(ZI,238) = BFORMCOEFF+num$([L]COEFF5)+",2)"
+[L]TABVAL(ZI,239) = BFORMCOEFF+num$([L]COEFF6)+",2)"
+[L]TABVAL(ZI,240) = BFORMCOEFF+num$([L]COEFF7)+",2)"
+[L]TABVAL(ZI,241) = BFORMCOEFF+num$([L]COEFF8)+",2)"
+[L]TABVAL(ZI,242) = BFORMCOEFF+num$([L]COEFF9)+",2)"
+[L]TABVAL(ZI,243) = BFORMCOEFF+num$([L]COEFF10)+",2)"
+[L]TABVAL(ZI,244) = BFORMCOEFF+num$([L]COEFF11)+",2)"
+[L]TABVAL(ZI,245) = BFORMCOEFF+num$([L]COEFF12)+",2)"
+
+Return
+
+#---------------------------------------------------------
+# libellés des colonnes
+# type d'affichage::nom colonne::macro ou formule::code retour
+$INIT_LIG
+
+# Libellés des colonnes
+[L]TABVAL(ZI,0) = "Process"
+[L]TABVAL(ZI,1) = "Version"
+[L]TABVAL(ZI,2) = "Year"
+[L]TABVAL(ZI,3) = "Period"
+[L]TABVAL(ZI,4) = "Rep. Name"
+[L]TABVAL(ZI,5) = "Final Cus Group"
+[L]TABVAL(ZI,6) = "Country_ID"
+[L]TABVAL(ZI,7) = "Country"
+[L]TABVAL(ZI,8) = "Final Cus_ID"
+[L]TABVAL(ZI,9) = "Final Cus"
+[L]TABVAL(ZI,10) = "Customer"
+[L]TABVAL(ZI,11) = "Grade"
+[L]TABVAL(ZI,12) = "Product_ID"
+[L]TABVAL(ZI,13) = "Product"
+[L]TABVAL(ZI,14) = "Form"
+[L]TABVAL(ZI,15) = "Pack"
+[L]TABVAL(ZI,16) = "Plant"
+[L]TABVAL(ZI,17) = "Mineral"
+[L]TABVAL(ZI,18) = "KPG"
+[L]TABVAL(ZI,19) = "Market Group"
+[L]TABVAL(ZI,20) = "Sub-segment"
+[L]TABVAL(ZI,21) = "Delivery Term"
+[L]TABVAL(ZI,22) = "Ship Via"
+[L]TABVAL(ZI,23) = "Site_ID"
+[L]TABVAL(ZI,24) = "Site"
+[L]TABVAL(ZI,25) = "Invoiced Cur."
+
+[L]TABVAL(ZI,26) = "LY Qty pd 1"
+[L]TABVAL(ZI,27) = "LY Qty pd 2"
+[L]TABVAL(ZI,28) = "LY Qty pd 3"
+[L]TABVAL(ZI,29) = "LY Qty pd 4"
+[L]TABVAL(ZI,30) = "LY Qty pd 5"
+[L]TABVAL(ZI,31) = "LY Qty pd 6"
+[L]TABVAL(ZI,32) = "LY Qty pd 7"
+[L]TABVAL(ZI,33) = "LY Qty pd 8"
+[L]TABVAL(ZI,34) = "LY Qty pd 9"
+[L]TABVAL(ZI,35) = "LY Qty pd 10"
+[L]TABVAL(ZI,36) = "LY Qty pd 11"
+[L]TABVAL(ZI,37) = "LY Qty pd 12"
+[L]TABVAL(ZI,38) = "LY Rev pd 1"
+[L]TABVAL(ZI,39) = "LY Rev pd 2"
+[L]TABVAL(ZI,40) = "LY Rev pd 3"
+[L]TABVAL(ZI,41) = "LY Rev pd 4"
+[L]TABVAL(ZI,42) = "LY Rev pd 5"
+[L]TABVAL(ZI,43) = "LY Rev pd 6"
+[L]TABVAL(ZI,44) = "LY Rev pd 7"
+[L]TABVAL(ZI,45) = "LY Rev pd 8"
+[L]TABVAL(ZI,46) = "LY Rev pd 9"
+[L]TABVAL(ZI,47) = "LY Rev pd 10"
+[L]TABVAL(ZI,48) = "LY Rev pd 11"
+[L]TABVAL(ZI,49) = "LY Rev pd 12"
+[L]TABVAL(ZI,50) = "LY Qty YTD"
+[L]TABVAL(ZI,51) = "LY Rev YTD"
+[L]TABVAL(ZI,52) = "LY Rev YTD EUR"
+[L]TABVAL(ZI,53) = "LY UP YTD"
+[L]TABVAL(ZI,54) = "LY UP FR YTD"
+[L]TABVAL(ZI,55) = "LY UP ES YTD"
+[L]TABVAL(ZI,56) = "LY UP EXW YTD"
+[L]TABVAL(ZI,57) = "LY Qty Tot"
+[L]TABVAL(ZI,58) = "LY Rev Tot"
+[L]TABVAL(ZI,59) = "LY Rev Tot EUR"
+[L]TABVAL(ZI,60) = "LY UP Tot"
+[L]TABVAL(ZI,61) = "LY UP FR Tot"
+[L]TABVAL(ZI,62) = "LY UP ES Tot"
+[L]TABVAL(ZI,63) = "LY UP EXW Tot"
+
+[L]TABVAL(ZI,64) = "Bud Qty pd 1"
+[L]TABVAL(ZI,65) = "Bud Qty pd 2"
+[L]TABVAL(ZI,66) = "Bud Qty pd 3"
+[L]TABVAL(ZI,67) = "Bud Qty pd 4"
+[L]TABVAL(ZI,68) = "Bud Qty pd 5"
+[L]TABVAL(ZI,69) = "Bud Qty pd 6"
+[L]TABVAL(ZI,70) = "Bud Qty pd 7"
+[L]TABVAL(ZI,71) = "Bud Qty pd 8"
+[L]TABVAL(ZI,72) = "Bud Qty pd 9"
+[L]TABVAL(ZI,73) = "Bud Qty pd 10"
+[L]TABVAL(ZI,74) = "Bud Qty pd 11"
+[L]TABVAL(ZI,75) = "Bud Qty pd 12"
+[L]TABVAL(ZI,76) = "Bud Rev pd 1"
+[L]TABVAL(ZI,77) = "Bud Rev pd 2"
+[L]TABVAL(ZI,78) = "Bud Rev pd 3"
+[L]TABVAL(ZI,79) = "Bud Rev pd 4"
+[L]TABVAL(ZI,80) = "Bud Rev pd 5"
+[L]TABVAL(ZI,81) = "Bud Rev pd 6"
+[L]TABVAL(ZI,82) = "Bud Rev pd 7"
+[L]TABVAL(ZI,83) = "Bud Rev pd 8"
+[L]TABVAL(ZI,84) = "Bud Rev pd 9"
+[L]TABVAL(ZI,85) = "Bud Rev pd 10"
+[L]TABVAL(ZI,86) = "Bud Rev pd 11"
+[L]TABVAL(ZI,87) = "Bud Rev pd 12"
+[L]TABVAL(ZI,88) = "Bud Qty YTD"
+[L]TABVAL(ZI,89) = "Bud Rev YTD"
+[L]TABVAL(ZI,90) = "Bud Rev YTD EUR"
+[L]TABVAL(ZI,91) = "Bud UP YTD"
+[L]TABVAL(ZI,92) = "Bud Qty Tot"
+[L]TABVAL(ZI,93) = "Bud Rev Tot"
+[L]TABVAL(ZI,94) = "Bud Rev Tot EUR"
+[L]TABVAL(ZI,95) = "Bud UP Tot"
+[L]TABVAL(ZI,96) = "Bud UP FR Tot"
+[L]TABVAL(ZI,97) = "Bud UP ES Tot"
+[L]TABVAL(ZI,98) = "Bud UP EXW Tot"
+
+[L]TABVAL(ZI,99) = "For Qty pd 1"
+[L]TABVAL(ZI,100) = "For Qty pd 2"
+[L]TABVAL(ZI,101) = "For Qty pd 3"
+[L]TABVAL(ZI,102) = "For Qty pd 4"
+[L]TABVAL(ZI,103) = "For Qty pd 5"
+[L]TABVAL(ZI,104) = "For Qty pd 6"
+[L]TABVAL(ZI,105) = "For Qty pd 7"
+[L]TABVAL(ZI,106) = "For Qty pd 8"
+[L]TABVAL(ZI,107) = "For Qty pd 9"
+[L]TABVAL(ZI,108) = "For Qty pd 10"
+[L]TABVAL(ZI,109) = "For Qty pd 11"
+[L]TABVAL(ZI,110) = "For Qty pd 12"
+[L]TABVAL(ZI,111) = "For Rev pd 1"
+[L]TABVAL(ZI,112) = "For Rev pd 2"
+[L]TABVAL(ZI,113) = "For Rev pd 3"
+[L]TABVAL(ZI,114) = "For Rev pd 4"
+[L]TABVAL(ZI,115) = "For Rev pd 5"
+[L]TABVAL(ZI,116) = "For Rev pd 6"
+[L]TABVAL(ZI,117) = "For Rev pd 7"
+[L]TABVAL(ZI,118) = "For Rev pd 8"
+[L]TABVAL(ZI,119) = "For Rev pd 9"
+[L]TABVAL(ZI,120) = "For Rev pd 10"
+[L]TABVAL(ZI,121) = "For Rev pd 11"
+[L]TABVAL(ZI,122) = "For Rev pd 12"
+[L]TABVAL(ZI,123) = "For Qty YTD"
+[L]TABVAL(ZI,124) = "For Rev YTD"
+[L]TABVAL(ZI,125) = "For UP YTD"
+[L]TABVAL(ZI,126) = "For Qty Tot"
+[L]TABVAL(ZI,127) = "For Rev Tot"
+[L]TABVAL(ZI,128) = "For Rev Tot EUR"
+[L]TABVAL(ZI,129) = "For UP Tot"
+
+[L]TABVAL(ZI,130) = "NY Bud Qty pd 1"
+[L]TABVAL(ZI,131) = "NY Bud Qty pd 2"
+[L]TABVAL(ZI,132) = "NY Bud Qty pd 3"
+[L]TABVAL(ZI,133) = "NY Bud Qty pd 4"
+[L]TABVAL(ZI,134) = "NY Bud Qty pd 5"
+[L]TABVAL(ZI,135) = "NY Bud Qty pd 6"
+[L]TABVAL(ZI,136) = "NY Bud Qty pd 7"
+[L]TABVAL(ZI,137) = "NY Bud Qty pd 8"
+[L]TABVAL(ZI,138) = "NY Bud Qty pd 9"
+[L]TABVAL(ZI,139) = "NY Bud Qty pd 10"
+[L]TABVAL(ZI,140) = "NY Bud Qty pd 11"
+[L]TABVAL(ZI,141) = "NY Bud Qty pd 12"
+[L]TABVAL(ZI,142) = "NY Bud Qty Tot"
+[L]TABVAL(ZI,143) = "NY Bud Rev Tot"
+[L]TABVAL(ZI,144) = "NY Bud Rev Tot EUR"
+[L]TABVAL(ZI,145) = "NY Bud UP Tot"
+[L]TABVAL(ZI,146) = "NY Bud UP FR Tot"
+[L]TABVAL(ZI,147) = "NY Bud UP ES Tot"
+[L]TABVAL(ZI,148) = "NY Bud UP EXW Tot"
+
+[L]TABVAL(ZI,149) = "Act Rev pd 1"
+[L]TABVAL(ZI,150) = "Act Rev pd 2"
+[L]TABVAL(ZI,151) = "Act Rev pd 3"
+[L]TABVAL(ZI,152) = "Act Rev pd 4"
+[L]TABVAL(ZI,153) = "Act Rev pd 5"
+[L]TABVAL(ZI,154) = "Act Rev pd 6"
+[L]TABVAL(ZI,155) = "Act Rev pd 7"
+[L]TABVAL(ZI,156) = "Act Rev pd 8"
+[L]TABVAL(ZI,157) = "Act Rev pd 9"
+[L]TABVAL(ZI,158) = "Act Rev pd 10"
+[L]TABVAL(ZI,159) = "Act Rev pd 11"
+[L]TABVAL(ZI,160) = "Act Rev pd 12"
+[L]TABVAL(ZI,161) = "Act Qty YTD"
+[L]TABVAL(ZI,162) = "Act Rev YTD"
+[L]TABVAL(ZI,163) = "Act Rev YTD EUR"
+[L]TABVAL(ZI,164) = "Act UP YTD"
+[L]TABVAL(ZI,165) = "Act UP FR YTD"
+[L]TABVAL(ZI,166) = "Act UP ES YTD"
+[L]TABVAL(ZI,167) = "Act UP EXW YTD"
+
+[L]TABVAL(ZI,168) = "Act Qty YTD ini"
+[L]TABVAL(ZI,169) = "Act Rev YTD ini"
+
+[L]TABVAL(ZI,170) = "Qty pd 1"
+[L]TABVAL(ZI,171) = "Qty pd 2"
+[L]TABVAL(ZI,172) = "Qty pd 3"
+[L]TABVAL(ZI,173) = "Qty pd 4"
+[L]TABVAL(ZI,174) = "Qty pd 5"
+[L]TABVAL(ZI,175) = "Qty pd 6"
+[L]TABVAL(ZI,176) = "Qty pd 7"
+[L]TABVAL(ZI,177) = "Qty pd 8"
+[L]TABVAL(ZI,178) = "Qty pd 9"
+[L]TABVAL(ZI,179) = "Qty pd 10"
+[L]TABVAL(ZI,180) = "Qty pd 11"
+[L]TABVAL(ZI,181) = "Qty pd 12"
+
+[L]TABVAL(ZI,182) = "Qty Tot"
+[L]TABVAL(ZI,183) = "Unit Price"
+[L]TABVAL(ZI,184) = "Pivot period"
+[L]TABVAL(ZI,185) = "Unit Price 2"
+[L]TABVAL(ZI,186) = "Revenue"
+[L]TABVAL(ZI,187) = "Rev EUR"
+[L]TABVAL(ZI,188) = "Var new qty LY"
+[L]TABVAL(ZI,189) = "Var new qty BU"
+[L]TABVAL(ZI,190) = "Var new qty LF"
+[L]TABVAL(ZI,191) = "Var new UP LY"
+[L]TABVAL(ZI,192) = "Var new UP BU"
+[L]TABVAL(ZI,193) = "Var new UP LF"
+
+[L]TABVAL(ZI,194) = "Remark Customer"
+[L]TABVAL(ZI,195) = "Remark Product"
+[L]TABVAL(ZI,196) = "Remark Market"
+
+[L]TABVAL(ZI,197) = "Coeff. Allocate pd 1"
+[L]TABVAL(ZI,198) = "Coeff. Allocate pd 2"
+[L]TABVAL(ZI,199) = "Coeff. Allocate pd 3"
+[L]TABVAL(ZI,200) = "Coeff. Allocate pd 4"
+[L]TABVAL(ZI,201) = "Coeff. Allocate pd 5"
+[L]TABVAL(ZI,202) = "Coeff. Allocate pd 6"
+[L]TABVAL(ZI,203) = "Coeff. Allocate pd 7"
+[L]TABVAL(ZI,204) = "Coeff. Allocate pd 8"
+[L]TABVAL(ZI,205) = "Coeff. Allocate pd 9"
+[L]TABVAL(ZI,206) = "Coeff. Allocate pd 10"
+[L]TABVAL(ZI,207) = "Coeff. Allocate pd 11"
+[L]TABVAL(ZI,208) = "Coeff. Allocate pd 12"
+[L]TABVAL(ZI,209) = "Total forecast periods"
+[L]TABVAL(ZI,210) = "Total forecast periods 2"
+[L]TABVAL(ZI,211) = "Total forecast periods 0"
+
+[L]TABVAL(ZI,212) = "Qty pd 1 Bud"
+[L]TABVAL(ZI,213) = "Qty pd 2 Bud"
+[L]TABVAL(ZI,214) = "Qty pd 3 Bud"
+[L]TABVAL(ZI,215) = "Qty pd 4 Bud"
+[L]TABVAL(ZI,216) = "Qty pd 5 Bud"
+[L]TABVAL(ZI,217) = "Qty pd 6 Bud"
+[L]TABVAL(ZI,218) = "Qty pd 7 Bud"
+[L]TABVAL(ZI,219) = "Qty pd 8 Bud"
+[L]TABVAL(ZI,220) = "Qty pd 9 Bud"
+[L]TABVAL(ZI,221) = "Qty pd 10 Bud"
+[L]TABVAL(ZI,222) = "Qty pd 11 Bud"
+[L]TABVAL(ZI,223) = "Qty pd 12 Bud"
+
+[L]TABVAL(ZI,224) = "Qty Tot Bud"
+[L]TABVAL(ZI,225) = "Unit Price Bud"
+[L]TABVAL(ZI,226) = "Pivot period Bud"
+[L]TABVAL(ZI,227) = "Unit Price 2 Bud"
+[L]TABVAL(ZI,228) = "Revenue Bud"
+[L]TABVAL(ZI,229) = "Rev EUR Bud"
+[L]TABVAL(ZI,230) = "Var new qty LY Bud"
+[L]TABVAL(ZI,231) = "Var new qty BU Bud"
+[L]TABVAL(ZI,232) = "Var new UP LY"
+[L]TABVAL(ZI,233) = "Var new UP BU Bud"
+
+[L]TABVAL(ZI,234) = "Coeff. Allocate pd 1 Bud"
+[L]TABVAL(ZI,235) = "Coeff. Allocate pd 2 Bud"
+[L]TABVAL(ZI,236) = "Coeff. Allocate pd 3 Bud"
+[L]TABVAL(ZI,237) = "Coeff. Allocate pd 4 Bud"
+[L]TABVAL(ZI,238) = "Coeff. Allocate pd 5 Bud"
+[L]TABVAL(ZI,239) = "Coeff. Allocate pd 6 Bud"
+[L]TABVAL(ZI,240) = "Coeff. Allocate pd 7 Bud"
+[L]TABVAL(ZI,241) = "Coeff. Allocate pd 8 Bud"
+[L]TABVAL(ZI,242) = "Coeff. Allocate pd 9 Bud"
+[L]TABVAL(ZI,243) = "Coeff. Allocate pd 10 Bud"
+[L]TABVAL(ZI,244) = "Coeff. Allocate pd 11 Bud"
+[L]TABVAL(ZI,245) = "Coeff. Allocate pd 12 Bud"
+[L]TABVAL(ZI,246) = "Total forecast periods Bud"
+[L]TABVAL(ZI,247) = "Total forecast periods 2 Bud"
+
+[L]TABDESCOL(0) = "Hidden::ZPROCESS::Empty::K"
+[L]TABDESCOL(1) = "Hidden::ZVERS::Empty::K"
+[L]TABDESCOL(2) = "Hidden::ZANNEE::Empty::K"
+[L]TABDESCOL(3) = "Hidden::ZPERNUM::Empty::K"
+[L]TABDESCOL(4) = "Display::ZREPNAM"
+[L]TABDESCOL(5) = "Display::ZFCUSGRDES"
+[L]TABDESCOL(6) = "Hidden::ZBPDCRY::Empty::K"
+[L]TABDESCOL(7) = "Display::ZBPDCRYNAM"
+[L]TABDESCOL(8) = "Hidden::NFINALCUS::Empty::K"
+[L]TABDESCOL(9) = "Display::FINALCUSD"
+[L]TABDESCOL(10) = "Display::ZBPCNAM"
+[L]TABDESCOL(11) = "Display::ZSEAKEY"
+[L]TABDESCOL(12) = "Hidden::ZITMREF::Empty::K"
+[L]TABDESCOL(13) = "Display::ZITMDES1"
+[L]TABDESCOL(14) = "Display::ZTSIDES5"
+[L]TABDESCOL(15) = "Display::ZTSIDES4"
+[L]TABDESCOL(16) = "Display::ZTSIDES1"
+[L]TABDESCOL(17) = "Display::ZITMMINER"
+[L]TABDESCOL(18) = "Display::ZKPG"
+[L]TABDESCOL(19) = "Display::ZMARKGRDES"
+[L]TABDESCOL(20) = "Display::ZMARKSBDES"
+[L]TABDESCOL(21) = "Display::ZEECICT::Empty::K"
+[L]TABDESCOL(22) = "Display::ZEECTRN::Empty::K"
+[L]TABDESCOL(23) = "Hidden::ZSTOFCY::Empty::K"
+[L]TABDESCOL(24) = "Display::ZSTOFCYNAM"
+[L]TABDESCOL(25) = "Display::ZCUR::Empty::K"
+
+[L]TABDESCOL(26) = "Display::LYQTY1"
+[L]TABDESCOL(27) = "Display::LYQTY2"
+[L]TABDESCOL(28) = "Display::LYQTY3"
+[L]TABDESCOL(29) = "Display::LYQTY4"
+[L]TABDESCOL(30) = "Display::LYQTY5"
+[L]TABDESCOL(31) = "Display::LYQTY6"
+[L]TABDESCOL(32) = "Display::LYQTY7"
+[L]TABDESCOL(33) = "Display::LYQTY8"
+[L]TABDESCOL(34) = "Display::LYQTY9"
+[L]TABDESCOL(35) = "Display::LYQTY10"
+[L]TABDESCOL(36) = "Display::LYQTY11"
+[L]TABDESCOL(37) = "Display::LYQTY12"
+[L]TABDESCOL(38) = "Display::LYREV1"
+[L]TABDESCOL(39) = "Display::LYREV2"
+[L]TABDESCOL(40) = "Display::LYREV3"
+[L]TABDESCOL(41) = "Display::LYREV4"
+[L]TABDESCOL(42) = "Display::LYREV5"
+[L]TABDESCOL(43) = "Display::LYREV6"
+[L]TABDESCOL(44) = "Display::LYREV7"
+[L]TABDESCOL(45) = "Display::LYREV8"
+[L]TABDESCOL(46) = "Display::LYREV9"
+[L]TABDESCOL(47) = "Display::LYREV10"
+[L]TABDESCOL(48) = "Display::LYREV11"
+[L]TABDESCOL(49) = "Display::LYREV12"
+[L]TABDESCOL(50) = "Display::LYQTYYTD"
+[L]TABDESCOL(51) = "Display::LYREVYTD"
+[L]TABDESCOL(52) = "Display::LYRYTDEUR"
+[L]TABDESCOL(53) = "Display::LYUPYTD"
+[L]TABDESCOL(54) = "Display::LYUPFRYTD"
+[L]TABDESCOL(55) = "Display::LYUPESYTD"
+[L]TABDESCOL(56) = "Display::LYUPEXWYTD"
+[L]TABDESCOL(57) = "Display::LYQTYTOT::Empty::V"
+[L]TABDESCOL(58) = "Display::LYREVTOT"
+[L]TABDESCOL(59) = "Display::LYRTOTEUR"
+[L]TABDESCOL(60) = "Display::LYUPTOT::Empty::V"
+[L]TABDESCOL(61) = "Display::LYUPFRTOT"
+[L]TABDESCOL(62) = "Display::LYUPESTOT"
+[L]TABDESCOL(63) = "Display::LYUPEXWTOT"
+
+[L]TABDESCOL(64) = "Display::BUQTY1"
+[L]TABDESCOL(65) = "Display::BUQTY2"
+[L]TABDESCOL(66) = "Display::BUQTY3"
+[L]TABDESCOL(67) = "Display::BUQTY4"
+[L]TABDESCOL(68) = "Display::BUQTY5"
+[L]TABDESCOL(69) = "Display::BUQTY6"
+[L]TABDESCOL(70) = "Display::BUQTY7"
+[L]TABDESCOL(71) = "Display::BUQTY8"
+[L]TABDESCOL(72) = "Display::BUQTY9"
+[L]TABDESCOL(73) = "Display::BUQTY10"
+[L]TABDESCOL(74) = "Display::BUQTY11"
+[L]TABDESCOL(75) = "Display::BUQTY12"
+[L]TABDESCOL(76) = "Display::BUREV1"
+[L]TABDESCOL(77) = "Display::BUREV2"
+[L]TABDESCOL(78) = "Display::BUREV3"
+[L]TABDESCOL(79) = "Display::BUREV4"
+[L]TABDESCOL(80) = "Display::BUREV5"
+[L]TABDESCOL(81) = "Display::BUREV6"
+[L]TABDESCOL(82) = "Display::BUREV7"
+[L]TABDESCOL(83) = "Display::BUREV8"
+[L]TABDESCOL(84) = "Display::BUREV9"
+[L]TABDESCOL(85) = "Display::BUREV10"
+[L]TABDESCOL(86) = "Display::BUREV11"
+[L]TABDESCOL(87) = "Display::BUREV12"
+[L]TABDESCOL(88) = "Display::BUQTYYTD"
+[L]TABDESCOL(89) = "Display::BUREVYTD"
+[L]TABDESCOL(90) = "Display::BURYTDEUR"
+[L]TABDESCOL(91) = "Display::BUUPYTD"
+[L]TABDESCOL(92) = "Display::BUQTYTOT::Empty::V"
+[L]TABDESCOL(93) = "Display::BUREVTOT"
+[L]TABDESCOL(94) = "Display::BURTOTEUR"
+[L]TABDESCOL(95) = "Display::BUUPTOT::Empty::V"
+[L]TABDESCOL(96) = "Display::BUUPFRTOT"
+[L]TABDESCOL(97) = "Display::BUUPESTOT"
+[L]TABDESCOL(98) = "Display::BUUPEXWTOT"
+
+[L]TABDESCOL(99) = "Display::LFQTY1"
+[L]TABDESCOL(100) = "Display::LFQTY2"
+[L]TABDESCOL(101) = "Display::LFQTY3"
+[L]TABDESCOL(102) = "Display::LFQTY4"
+[L]TABDESCOL(103) = "Display::LFQTY5"
+[L]TABDESCOL(104) = "Display::LFQTY6"
+[L]TABDESCOL(105) = "Display::LFQTY7"
+[L]TABDESCOL(106) = "Display::LFQTY8"
+[L]TABDESCOL(107) = "Display::LFQTY9"
+[L]TABDESCOL(108) = "Display::LFQTY10"
+[L]TABDESCOL(109) = "Display::LFQTY11"
+[L]TABDESCOL(110) = "Display::LFQTY12"
+[L]TABDESCOL(111) = "Display::LFREV1"
+[L]TABDESCOL(112) = "Display::LFREV2"
+[L]TABDESCOL(113) = "Display::LFREV3"
+[L]TABDESCOL(114) = "Display::LFREV4"
+[L]TABDESCOL(115) = "Display::LFREV5"
+[L]TABDESCOL(116) = "Display::LFREV6"
+[L]TABDESCOL(117) = "Display::LFREV7"
+[L]TABDESCOL(118) = "Display::LFREV8"
+[L]TABDESCOL(119) = "Display::LFREV9"
+[L]TABDESCOL(120) = "Display::LFREV10"
+[L]TABDESCOL(121) = "Display::LFREV11"
+[L]TABDESCOL(122) = "Display::LFREV12"
+[L]TABDESCOL(123) = "Display::LFQTYYTD"
+[L]TABDESCOL(124) = "Display::LFREVYTD"
+[L]TABDESCOL(125) = "Display::LFUPYTD"
+[L]TABDESCOL(126) = "Display::LFQTYTOT::Empty::V"
+[L]TABDESCOL(127) = "Display::LFREVTOT"
+[L]TABDESCOL(128) = "Display::LFRTOTEUR"
+[L]TABDESCOL(129) = "Display::LFUPTOT::Empty::V"
+
+[L]TABDESCOL(130) = "Display::NYQTY1"
+[L]TABDESCOL(131) = "Display::NYQTY2"
+[L]TABDESCOL(132) = "Display::NYQTY3"
+[L]TABDESCOL(133) = "Display::NYQTY4"
+[L]TABDESCOL(134) = "Display::NYQTY5"
+[L]TABDESCOL(135) = "Display::NYQTY6"
+[L]TABDESCOL(136) = "Display::NYQTY7"
+[L]TABDESCOL(137) = "Display::NYQTY8"
+[L]TABDESCOL(138) = "Display::NYQTY9"
+[L]TABDESCOL(139) = "Display::NYQTY10"
+[L]TABDESCOL(140) = "Display::NYQTY11"
+[L]TABDESCOL(141) = "Display::NYQTY12"
+[L]TABDESCOL(142) = "Display::NYQTYTOT"
+[L]TABDESCOL(143) = "Display::NYREVTOT"
+[L]TABDESCOL(144) = "Display::NYRTOTEUR"
+[L]TABDESCOL(145) = "Display::NYUPTOT"
+[L]TABDESCOL(146) = "Display::NYUPFRTOT"
+[L]TABDESCOL(147) = "Display::NYUPESTOT"
+[L]TABDESCOL(148) = "Display::NYUPEXWTOT"
+
+[L]TABDESCOL(149) = "Display::ACTREV1"
+[L]TABDESCOL(150) = "Display::ACTREV2"
+[L]TABDESCOL(151) = "Display::ACTREV3"
+[L]TABDESCOL(152) = "Display::ACTREV4"
+[L]TABDESCOL(153) = "Display::ACTREV5"
+[L]TABDESCOL(154) = "Display::ACTREV6"
+[L]TABDESCOL(155) = "Display::ACTREV7"
+[L]TABDESCOL(156) = "Display::ACTREV8"
+[L]TABDESCOL(157) = "Display::ACTREV9"
+[L]TABDESCOL(158) = "Display::ACTREV10"
+[L]TABDESCOL(159) = "Display::ACTREV11"
+[L]TABDESCOL(160) = "Display::ACTREV12"
+[L]TABDESCOL(161) = "Display::ACTQTYYTD"
+[L]TABDESCOL(162) = "Display::ACTREVYTD"
+[L]TABDESCOL(163) = "Display::ACTRYTDEUR"
+[L]TABDESCOL(164) = "Display::ACTUPYTD"
+[L]TABDESCOL(165) = "Display::ACTUPFRYTD"
+[L]TABDESCOL(166) = "Display::ACTUPESYTD"
+[L]TABDESCOL(167) = "Display::ACTUPEXWYTD"
+
+[L]TABDESCOL(168) = "Display::ACTQTYINI"
+[L]TABDESCOL(169) = "Display::ACTREVINI"
+
+For ZL=1 To [L]XPERNUM-1
+  ZLIB(ZL)="Display::QTYPER"-num$(ZL)+"::Empty::V"
+Next
+For ZL=[L]XPERNUM To 12
+  ZLIB(ZL)="Enter::QTYPER"-num$(ZL)+"::RC183=RC171+RC172+RC173+RC174+RC175+RC176+RC177+RC178+RC179+RC180+RC181+RC182::V"
+Next
+
+[L]TABDESCOL(170) = ZLIB(1)
+[L]TABDESCOL(171) = ZLIB(2)
+[L]TABDESCOL(172) = ZLIB(3)
+[L]TABDESCOL(173) = ZLIB(4)
+[L]TABDESCOL(174) = ZLIB(5)
+[L]TABDESCOL(175) = ZLIB(6)
+[L]TABDESCOL(176) = ZLIB(7)
+[L]TABDESCOL(177) = ZLIB(8)
+[L]TABDESCOL(178) = ZLIB(9)
+[L]TABDESCOL(179) = ZLIB(10)
+[L]TABDESCOL(180) = ZLIB(11)
+[L]TABDESCOL(181) = ZLIB(12)
+
+# Gestion de la formule de ventilation en après-modif de la quantité totale
+YVPER(1)  = "RC171=RC198;"
+YVPER(2)  = "RC172=RC199;"
+YVPER(3)  = "RC173=RC200;"
+YVPER(4)  = "RC174=RC201;"
+YVPER(5)  = "RC175=RC202;"
+YVPER(6)  = "RC176=RC203;"
+YVPER(7)  = "RC177=RC204;"
+YVPER(8)  = "RC178=RC205;"
+YVPER(9)  = "RC179=RC206;"
+YVPER(10) = "RC180=RC207;"
+YVPER(11) = "RC181=RC208;"
+YVPER(12) = "RC182=RC209;"
+
+Raz YVENTIL
+For ZL=[L]XPERNUM To 12
+  YVENTIL+=YVPER(ZL)
+Next
+
+[L]TABDESCOL(182) = "Enter::ZQTYTOT::"+YVENTIL
+[L]TABDESCOL(183) = "Enter::ZUNIPRI::RC186=RC184::V"
+[L]TABDESCOL(184) = "Enter::ZPERPIV::Empty::V"
+[L]TABDESCOL(185) = "Enter::ZUNIPRI2::Empty::V"
+[L]TABDESCOL(186) = "Display::ZREV::Empty::V"
+[L]TABDESCOL(187) = "Display::ZREVEUR"
+[L]TABDESCOL(188) = "Display::ZVARMTLY"
+[L]TABDESCOL(189) = "Display::ZVARMTBU"
+[L]TABDESCOL(190) = "Display::ZVARMTLF"
+[L]TABDESCOL(191) = "Display::ZVARUPLY"
+[L]TABDESCOL(192) = "Display::ZVARUPBU"
+[L]TABDESCOL(193) = "Display::ZVARUPLF"
+
+[L]TABDESCOL(194) = "Enter::ZREMBPC::Empty::V"
+[L]TABDESCOL(195) = "Enter::ZREMITM::Empty::V"
+[L]TABDESCOL(196) = "Enter::ZREMMRK::Empty::V"
+
+[L]TABDESCOL(197) = "Hidden::COEFF1"
+[L]TABDESCOL(198) = "Hidden::COEFF2"
+[L]TABDESCOL(199) = "Hidden::COEFF3"
+[L]TABDESCOL(200) = "Hidden::COEFF4"
+[L]TABDESCOL(201) = "Hidden::COEFF5"
+[L]TABDESCOL(202) = "Hidden::COEFF6"
+[L]TABDESCOL(203) = "Hidden::COEFF7"
+[L]TABDESCOL(204) = "Hidden::COEFF8"
+[L]TABDESCOL(205) = "Hidden::COEFF9"
+[L]TABDESCOL(206) = "Hidden::COEFF10"
+[L]TABDESCOL(207) = "Hidden::COEFF11"
+[L]TABDESCOL(208) = "Hidden::COEFF12"
+
+[L]TABDESCOL(209) = "Hidden::YQPERT"
+[L]TABDESCOL(210) = "Hidden::YQPER2"
+[L]TABDESCOL(211) = "Hidden::YQPER0"
+
+#----------------------------
+# Si ajout des colonnes budget, sinon colonnes cachées
+If [F:ZFA]ZFLGBUD=2
+
+    For ZL=1 To 12
+      ZLIB(ZL)="Enter::BQTYPER"-num$(ZL)+"::RC225=RC213+RC214+RC215+RC216+RC217+RC218+RC219+RC220+RC221+RC222+RC223+RC224::V"
+    Next
+
+    [L]TABDESCOL(212) = ZLIB(1)
+    [L]TABDESCOL(213) = ZLIB(2)
+    [L]TABDESCOL(214) = ZLIB(3)
+    [L]TABDESCOL(215) = ZLIB(4)
+    [L]TABDESCOL(216) = ZLIB(5)
+    [L]TABDESCOL(217) = ZLIB(6)
+    [L]TABDESCOL(218) = ZLIB(7)
+    [L]TABDESCOL(219) = ZLIB(8)
+    [L]TABDESCOL(220) = ZLIB(9)
+    [L]TABDESCOL(221) = ZLIB(10)
+    [L]TABDESCOL(222) = ZLIB(11)
+    [L]TABDESCOL(223) = ZLIB(12)
+
+    # Gestion de la formule de ventilation en après-modif de la quantité totale
+    YVPER(1)  = "RC213=RC235;"
+    YVPER(2)  = "RC214=RC236;"
+    YVPER(3)  = "RC215=RC237;"
+    YVPER(4)  = "RC216=RC238;"
+    YVPER(5)  = "RC217=RC239;"
+    YVPER(6)  = "RC218=RC240;"
+    YVPER(7)  = "RC219=RC241;"
+    YVPER(8)  = "RC220=RC242;"
+    YVPER(9)  = "RC221=RC243;"
+    YVPER(10) = "RC222=RC244;"
+    YVPER(11) = "RC223=RC245;"
+    YVPER(12) = "RC224=RC246;"
+
+    Raz YVENTIL
+    For ZL=1 To 12
+      YVENTIL+=YVPER(ZL)
+    Next
+
+    [L]TABDESCOL(224) = "Enter::BZQTYTOT::"+YVENTIL
+    [L]TABDESCOL(225) = "Enter::BZUNIPRI::RC228=RC226::V"
+    [L]TABDESCOL(226) = "Enter::BZPERPIV::Empty::V"
+    [L]TABDESCOL(227) = "Enter::BZUNIPRI2::Empty::V"
+    [L]TABDESCOL(228) = "Display::BZREV::Empty::V"
+    [L]TABDESCOL(229) = "Display::BZREVEUR"
+    [L]TABDESCOL(230) = "Display::BZVARMTLY"
+    [L]TABDESCOL(231) = "Display::BZVARMTBU"
+    [L]TABDESCOL(232) = "Display::BZVARUPLY"
+    [L]TABDESCOL(233) = "Display::BZVARUPBU"
+
+    [L]TABDESCOL(234) = "Hidden::COEFF1"
+    [L]TABDESCOL(235) = "Hidden::COEFF2"
+    [L]TABDESCOL(236) = "Hidden::COEFF3"
+    [L]TABDESCOL(237) = "Hidden::COEFF4"
+    [L]TABDESCOL(238) = "Hidden::COEFF5"
+    [L]TABDESCOL(239) = "Hidden::COEFF6"
+    [L]TABDESCOL(240) = "Hidden::COEFF7"
+    [L]TABDESCOL(241) = "Hidden::COEFF8"
+    [L]TABDESCOL(242) = "Hidden::COEFF9"
+    [L]TABDESCOL(243) = "Hidden::COEFF10"
+    [L]TABDESCOL(244) = "Hidden::COEFF11"
+    [L]TABDESCOL(245) = "Hidden::COEFF12"
+
+    [L]TABDESCOL(246) = "Hidden::BYQPERT"
+    [L]TABDESCOL(247) = "Hidden::BYQPER2"
+
+    # En contexte FORBUD et version SMA : les données budget ne sont pas modifiable (seulement à partir de SGM)
+    If [ZFA]ZCONTEXT=3 and YVERS=WVERS(2)
+        For ZL=1 To 12
+          ZLIB(ZL)="Display::BQTYPER"-num$(ZL)+"::RC225=RC213+RC214+RC215+RC216+RC217+RC218+RC219+RC220+RC221+RC222+RC223+RC224::V"
+        Next
+        [L]TABDESCOL(212) = ZLIB(1)
+        [L]TABDESCOL(213) = ZLIB(2)
+        [L]TABDESCOL(214) = ZLIB(3)
+        [L]TABDESCOL(215) = ZLIB(4)
+        [L]TABDESCOL(216) = ZLIB(5)
+        [L]TABDESCOL(217) = ZLIB(6)
+        [L]TABDESCOL(218) = ZLIB(7)
+        [L]TABDESCOL(219) = ZLIB(8)
+        [L]TABDESCOL(220) = ZLIB(9)
+        [L]TABDESCOL(221) = ZLIB(10)
+        [L]TABDESCOL(222) = ZLIB(11)
+        [L]TABDESCOL(223) = ZLIB(12)
+        [L]TABDESCOL(224) = "Display::BZQTYTOT"
+        [L]TABDESCOL(225) = "Display::BZUNIPRI::RC228=RC226::V"
+        [L]TABDESCOL(226) = "Display::BZPERPIV::Empty::V"
+        [L]TABDESCOL(227) = "Display::BZUNIPRI2::Empty::V"
+    Endif
+
+Else
+
+    [L]TABDESCOL(212) = "Hidden::BQTYPER1"
+    [L]TABDESCOL(213) = "Hidden::BQTYPER1"
+    [L]TABDESCOL(214) = "Hidden::BQTYPER1"
+    [L]TABDESCOL(215) = "Hidden::BQTYPER1"
+    [L]TABDESCOL(216) = "Hidden::BQTYPER1"
+    [L]TABDESCOL(217) = "Hidden::BQTYPER1"
+    [L]TABDESCOL(218) = "Hidden::BQTYPER1"
+    [L]TABDESCOL(219) = "Hidden::BQTYPER1"
+    [L]TABDESCOL(220) = "Hidden::BQTYPER1"
+    [L]TABDESCOL(221) = "Hidden::BQTYPER1"
+    [L]TABDESCOL(222) = "Hidden::BQTYPER1"
+    [L]TABDESCOL(223) = "Hidden::BQTYPER1"
+
+    [L]TABDESCOL(224) = "Hidden::BZQTYTOT"
+    [L]TABDESCOL(225) = "Hidden::BZUNIPRI"
+    [L]TABDESCOL(226) = "Hidden::BZPERPIV"
+    [L]TABDESCOL(227) = "Hidden::BZUNIPRI2"
+    [L]TABDESCOL(228) = "Hidden::BZREV"
+    [L]TABDESCOL(229) = "Hidden::BZREVEUR"
+    [L]TABDESCOL(230) = "Hidden::BZVARMTLY"
+    [L]TABDESCOL(231) = "Hidden::BZVARMTBU"
+    [L]TABDESCOL(232) = "Hidden::BZVARUPLY"
+    [L]TABDESCOL(233) = "Hidden::BZVARUPBU"
+
+    [L]TABDESCOL(234) = "Hidden::COEFF1"
+    [L]TABDESCOL(235) = "Hidden::COEFF2"
+    [L]TABDESCOL(236) = "Hidden::COEFF3"
+    [L]TABDESCOL(237) = "Hidden::COEFF4"
+    [L]TABDESCOL(238) = "Hidden::COEFF5"
+    [L]TABDESCOL(239) = "Hidden::COEFF6"
+    [L]TABDESCOL(240) = "Hidden::COEFF7"
+    [L]TABDESCOL(241) = "Hidden::COEFF8"
+    [L]TABDESCOL(242) = "Hidden::COEFF9"
+    [L]TABDESCOL(243) = "Hidden::COEFF10"
+    [L]TABDESCOL(244) = "Hidden::COEFF11"
+    [L]TABDESCOL(245) = "Hidden::COEFF12"
+
+    [L]TABDESCOL(246) = "Hidden::BYQPERT"
+    [L]TABDESCOL(247) = "Hidden::BYQPER2"
+
+Endif
+Return
+
+
+#################################################################
+# Sous-programme d'écriture dans ZFORBUD
+# appelé depuis un web service en retour de modification via Excel
+#
+Subprog ECRBUD(FILT,NBUPD,TRANSAC,NBLIG,CLE,VALEUR,STARET,MESRET)
+Value Char FILT
+Variable Integer NBUPD
+Value Char TRANSAC
+Value Integer NBLIG
+Value Char CLE()(,)
+Value Char VALEUR()(,)
+Variable Integer STARET
+Variable Char MESRET()
+
+Local Integer I
+
+
+# CLE(i,0)=CPY
+# CLE(i,1)=BUD
+# CLE(i,2)=LEDTYP
+# CLE(i,3)=FCY
+# CLE(i,4)=FIY
+# CLE(i,5)=VER
+# CLE(i,6)=ACC
+# CLE(i,7)=CCE1
+# CLE(i,8)=CCE2
+# CLE(i,9)=CCE3
+
+
+# Valeurs
+# 0 - AMTANN
+Local Integer PER
+If !clalev([F:BUD]) : Local File BUD [BUD] : Endif
+#If !clalev([F:BUD2]) : Local File BUD [BUD2] : Endif
+#If TRANSAC="End"
+NBUPD=0
+Trbegin [BUD]
+
+For I= 0 To NBLIG-1
+ Gosub MAJBUD
+Next
+
+If STARET=0
+ Commit
+ #Rollback
+Else
+ Rollback
+Endif
+#Endif
+
+End
+
+$MAJBUD
+For [BUD] Where LEDTYP = val(CLE(I,2))
+&         &     BUD    = CLE(I,1)
+&         &     CPY    = CLE(I,0)
+&         &     FCY    = CLE(I,3)
+&         &     FIY    = val(CLE(I,4))
+&         &     VER    = CLE(I,5)
+&         &     ACC    = CLE(I,6)
+&         &     CCE1   = CLE(I,7)
+&         &     CCE2   = CLE(I,8)
+&         &     CCE3   = CLE(I,9)
+ NBUPD +=1
+
+ For PER = 0 To 11
+  [F:BUD]AMT(PER) = ar2(val(VALEUR(I,0))/12)
+ Next
+ Rewrite [BUD] Curr
+ If fstat
+  STARET = 10
+  MESRET =" Erreur mj budget"
+  Break
+ Endif
+Next
+
+If STARET >0
+ Return
+Endif
+
+Return
+
+
+
+# Lecture console admnistration : un seul enregistrement dans la table
+Read [ZFA] First
+If [ZFA]ZPROCESS=2
+  XLVL = 0
+Else
+  XLVL = [F:ZFA]ZLVL
+Endif
+
+#remise à de la zéro table des remarques pour l'utilisateur
+If TRANSAC="Begin"
+  Trbegin [ZRF]
+    Delete [ZRF] Where ZUSER=[L]FILT
+  Commit
+Endif
+
+Filter [ZRF] Where ZUSER=[L]FILT
+Read [ZRF] Last
+Filter [ZRF]
+ZNBREM=[ZRF]ZLIG
+
+Trbegin [ZFB],[ZRF]
+For ZI=0 To NBLIG-1
+
+  Raz ZOKTRT
+  #== ZLVL+ZPROCESS+ZANNEE+ZPERNUM+NFINALCUS+ZBPDCRY+ZITMREF+ZEECICT1+ZEECTRN+ZSTOFCY+ZCUR
+  Read [ZFB]ZFB0 = XLVL;val(CLE(ZI,0));val(CLE(ZI,2));val(CLE(ZI,3));CLE(ZI,5);CLE(ZI,4);CLE(ZI,6);CLE(ZI,7);CLE(ZI,8);CLE(ZI,9);CLE(ZI,10)
+
+  If fstat=0
+    # Si remarques on alimente la table des remarques pur le workflow
+    If VALEUR(ZI,22)<>""
+      [ZRF]=[ZFB]
+      ZNBREM+=1
+      [ZRF]ZUSER   = [L]FILT
+      [ZRF]ZREMWS  = VALEUR(ZI,22)
+      [ZRF]ZLIG    = ZNBREM
+      [ZRF]ZTYPREM = 1
+      Write [ZRF]
+      If fstat
+        STARET = 2
+        MESRET=mess(22,6002,1)
+        Break
+      Endif
+    Endif
+    If VALEUR(ZI,23)<>""
+      [ZRF]=[ZFB]
+      ZNBREM+=1
+      [ZRF]ZUSER   = [L]FILT
+      [ZRF]ZREMWS  = VALEUR(ZI,23)
+      [ZRF]ZLIG    = ZNBREM
+      [ZRF]ZTYPREM = 2
+      Write [ZRF]
+      If fstat
+        STARET = 2
+        MESRET=mess(22,6002,1)
+        Break
+      Endif
+    Endif
+    If VALEUR(ZI,24)<>""
+      [ZRF]=[ZFB]
+      ZNBREM+=1
+      [ZRF]ZUSER   = [L]FILT
+      [ZRF]ZREMWS  = VALEUR(ZI,24)
+      [ZRF]ZLIG    = ZNBREM
+      [ZRF]ZTYPREM = 3
+      Write [ZRF]
+      If fstat
+        STARET = 2
+        MESRET=mess(22,6002,1)
+        Break
+      Endif
+    Endif
+
+    If[F:ZFB]ZUNIPRI <> val(VALEUR(ZI,18)) or [F:ZFB]ZPERPIV <> val(VALEUR(ZI,19)) or [F:ZFB]ZUNIPRI2 <> val(VALEUR(ZI,20))
+      ZOKTRT=1
+    Else
+      For ZJ = 6 To 17
+        If[F:ZFB]ZQTYPER(ZJ-6) <> val(VALEUR(ZI,ZJ))
+          ZOKTRT=1 : Break
+        Endif
+      Next
+    Endif
+
+    If ZOKTRT=1
+
+      [F:ZFB]ZQTYSTU = 0
+      For ZJ = 6 To 17
+        [F:ZFB]ZQTYPER(ZJ-6) = val(VALEUR(ZI,ZJ))
+        [F:ZFB]ZQTYSTU += [ZFB]ZQTYPER(ZJ-6)
+      Next
+
+      [F:ZFB]ZUNIPRI = val(VALEUR(ZI,18))
+      [F:ZFB]ZPERPIV = val(VALEUR(ZI,19))
+      [F:ZFB]ZUNIPRI2 = val(VALEUR(ZI,20))
+
+      If max(abs([F:ZFB]ZQTYSTU),abs(val(VALEUR(ZI,0)))) <> 0
+        [F:ZFB]ZMTN1 = ar2(([F:ZFB]ZQTYSTU - val(VALEUR(ZI,0))) / max(abs([F:ZFB]ZQTYSTU),abs(val(VALEUR(ZI,0)))))
+      Endif
+      If max(abs([F:ZFB]ZUNIPRI),abs(val(VALEUR(ZI,1)))) <> 0
+        [F:ZFB]ZUPN1 = ar2(([F:ZFB]ZUNIPRI - val(VALEUR(ZI,1))) / max(abs([F:ZFB]ZUNIPRI),abs(val(VALEUR(ZI,1)))))
+      Endif
+      If max(abs([F:ZFB]ZQTYSTU),abs(val(VALEUR(ZI,2)))) <> 0
+        [F:ZFB]ZMTB0 = ar2(([F:ZFB]ZQTYSTU - val(VALEUR(ZI,2))) / max(abs([F:ZFB]ZQTYSTU),abs(val(VALEUR(ZI,2)))))
+      Endif
+      If max(abs([F:ZFB]ZUNIPRI),abs(val(VALEUR(ZI,3)))) <> 0
+        [F:ZFB]ZUPB0= ar2(([F:ZFB]ZUNIPRI - val(VALEUR(ZI,3))) / max(abs([F:ZFB]ZUNIPRI),abs(val(VALEUR(ZI,3)))))
+      Endif
+      If max(abs([F:ZFB]ZQTYSTU),abs(val(VALEUR(ZI,4)))) <> 0
+        [F:ZFB]ZMTF1 = ar2(([F:ZFB]ZQTYSTU - val(VALEUR(ZI,4))) / max(abs([F:ZFB]ZQTYSTU),abs(val(VALEUR(ZI,4)))))
+      Endif
+      If max(abs([F:ZFB]ZUNIPRI),abs(val(VALEUR(ZI,5)))) <> 0
+        [F:ZFB]ZUPF1 = ar2(([F:ZFB]ZUNIPRI - val(VALEUR(ZI,5)))/ max(abs([F:ZFB]ZUNIPRI),abs(val(VALEUR(ZI,5)))))
+      Endif
+      # calcul du revenu
+      [F:ZFB]ZREV = val(VALEUR(ZI,21))
+
+      Read [FCY]FCY0 = CLE(ZI,9)
+      Read [CPY]CPY0 = [FCY]LEGCPY
+
+      #Call CONVERT3(DEVORG,DEVDES,GDEVSOC,TYPCOURS,DATCOURS,RNDCUR,MTORG,MTDES,STAT) From TRTDEV
+      If [F:ZFB]ZPROCESS=2 #Forecast
+        Call CONVERT3(CLE(ZI,10),"EUR",GDEVSOC,4,date$,3,[F:ZFB]ZREV,[ZFB]ZREVEUR,ZSTA) From TRTDEV
+        Call CONVERT3(CLE(ZI,10),[CPY]ACCCUR,GDEVSOC,4,date$,3,[F:ZFB]ZREV,[ZFB]ZREVCUR,ZSTA) From TRTDEV
+      Else
+        Call CONVERT3(CLE(ZI,10),"EUR",GDEVSOC,3,gdat$(01,01,year(date$)+1),3,[F:ZFB]ZREV,[ZFB]ZREVEUR,ZSTA) From TRTDEV
+        Call CONVERT3(CLE(ZI,10),[CPY]ACCCUR,GDEVSOC,3,gdat$(01,01,year(date$)+1),3,[F:ZFB]ZREV,[ZFB]ZREVCUR,ZSTA) From TRTDEV
+      Endif
+
+      [ZFB]CREUSR = GUSER
+      [ZFB]CREDAT = date$
+
+      NBUPD+=1
+
+    Endif #ZOKTRT
+
+      [ZFB]ZSTA = 2
+
+      Rewrite [ZFB]
+      If fstat
+        STARET = 2
+        MESRET=mess(2,6002,1)
+        Break
+      Endif
+
+      Filter [ZFH] Where ZPROCESS = [ZFB]ZPROCESS & ZANNEE=[F:ZFB]ZANNEE & ZPERNUM=[F:ZFB]ZPERNUM
+&                    & ZREP=[F:ZFB]ZREP & ZGRPBPC=[F:ZFB]ZGRPBPC & ZBPDCRY=[F:ZFB]ZBPDCRY & ZSTA<2
+      Read [ZFH] First
+      Filter [ZFH]
+      If fstat=0
+        [ZFH]ZSTA=2
+        Rewrite [ZFH]
+        If fstat
+          STARET = 2
+          MESRET=mess(16,6002,1)
+          Break
+        Endif
+      Endif
+
+  #Else
+  #  STARET = 2
+  #  MESRET=mess(21,6002,1)-CLE(ZI,0)-CLE(ZI,1)-CLE(ZI,2)-CLE(ZI,3)-CLE(ZI,4)-CLE(ZI,5)-CLE(ZI,6)-CLE(ZI,7)-CLE(ZI,8)-CLE(ZI,9)-CLE(ZI,10)
+  #  Break
+  Endif
+
+  If [F:ZFA]ZFLGBUD=2 and CLE(0,1)<>"SMA"
+    Gosub MAJ_BUD
+    If STARET=2 : Break : Endif
+  Endif
+
+Next
+Filter [ZFB]
+
+If STARET=2
+  Rollback
+  End
+Else
+  If [L]TRANSAC="End"
+    Update [ZFU] Where CODUSR=[L]FILT and ZVERS=CLE(0,1) With ZSTAXLS=1
+    MESRET = num$(NBUPD)-"records updated"
+  Endif
+  Commit
+Endif
+
+If [L]TRANSAC="End" and ([F:ZFA]ZREVFIN=2 or [F:ZFA]ZREVSGM=2)
+  Local Integer ZSTAT
+  Local Char ZMESS(250)
+  Call CALCUSR(ZSTAT,ZMESS) From SPEZFA
+  If ZSTAT<>0
+    MESRET+= "  "-ZMESS
+  Endif
+Endif
+
+
+End
+
+
+# On traite l'enregistrement budget relatif à la clé
+# ZPROCESS=3, ZANNEE=ANNEE+1, ZPERNUM=0
+$MAJ_BUD
+
+
+  Raz ZOKTRT
+  #== ZVERS+ZLVL+ZPROCESS+ZANNEE+ZPERNUM+NFINALCUS+ZBPDCRY+ZITMREF+ZEECICT1+ZEECTRN+ZSTOFCY+ZCUR
+  Read [ZFB]ZFB0 = [F:ZFA]ZLVL;3;val(CLE(ZI,2))+1;0;CLE(ZI,5);CLE(ZI,4);CLE(ZI,6);CLE(ZI,7);CLE(ZI,8);CLE(ZI,9);CLE(ZI,10)
+
+  If fstat=0
+
+    If[F:ZFB]ZUNIPRI <> val(VALEUR(ZI,37)) or [F:ZFB]ZPERPIV <> val(VALEUR(ZI,38)) or [F:ZFB]ZUNIPRI2 <> val(VALEUR(ZI,39))
+      ZOKTRT=1
+    Else
+      For ZJ = 25 To 36
+        If[F:ZFB]ZQTYPER(ZJ-25) <> val(VALEUR(ZI,ZJ))
+          ZOKTRT=1 : Break
+        Endif
+      Next
+    Endif
+
+    If ZOKTRT=1
+
+      [F:ZFB]ZQTYSTU = 0
+      For ZJ = 25 To 36
+        [F:ZFB]ZQTYPER(ZJ-25) = val(VALEUR(ZI,ZJ))
+        [F:ZFB]ZQTYSTU += [ZFB]ZQTYPER(ZJ-25)
+      Next
+
+      [F:ZFB]ZUNIPRI = val(VALEUR(ZI,37))
+      [F:ZFB]ZPERPIV = val(VALEUR(ZI,38))
+      [F:ZFB]ZUNIPRI2 = val(VALEUR(ZI,39))
+
+      If max(abs([F:ZFB]ZQTYSTU),abs(val(VALEUR(ZI,0)))) <> 0
+        [F:ZFB]ZMTN1 = ar2(([F:ZFB]ZQTYSTU - val(VALEUR(ZI,0))) / max(abs([F:ZFB]ZQTYSTU),abs(val(VALEUR(ZI,0)))))
+      Endif
+      If max(abs([F:ZFB]ZUNIPRI),abs(val(VALEUR(ZI,1)))) <> 0
+        [F:ZFB]ZUPN1 = ar2(([F:ZFB]ZUNIPRI - val(VALEUR(ZI,1))) / max(abs([F:ZFB]ZUNIPRI),abs(val(VALEUR(ZI,1)))))
+      Endif
+      If max(abs([F:ZFB]ZQTYSTU),abs(val(VALEUR(ZI,2)))) <> 0
+        [F:ZFB]ZMTB0 = ar2(([F:ZFB]ZQTYSTU - val(VALEUR(ZI,2))) / max(abs([F:ZFB]ZQTYSTU),abs(val(VALEUR(ZI,2)))))
+      Endif
+      If max(abs([F:ZFB]ZUNIPRI),abs(val(VALEUR(ZI,3)))) <> 0
+        [F:ZFB]ZUPB0= ar2(([F:ZFB]ZUNIPRI - val(VALEUR(ZI,3))) / max(abs([F:ZFB]ZUNIPRI),abs(val(VALEUR(ZI,3)))))
+      Endif
+      If max(abs([F:ZFB]ZQTYSTU),abs(val(VALEUR(ZI,4)))) <> 0
+        [F:ZFB]ZMTF1 = ar2(([F:ZFB]ZQTYSTU - val(VALEUR(ZI,4))) / max(abs([F:ZFB]ZQTYSTU),abs(val(VALEUR(ZI,4)))))
+      Endif
+      If max(abs([F:ZFB]ZUNIPRI),abs(val(VALEUR(ZI,5)))) <> 0
+        [F:ZFB]ZUPF1 = ar2(([F:ZFB]ZUNIPRI - val(VALEUR(ZI,5)))/ max(abs([F:ZFB]ZUNIPRI),abs(val(VALEUR(ZI,5)))))
+      Endif
+      # calcul du revenu
+      [F:ZFB]ZREV = val(VALEUR(ZI,40))
+
+      Read [FCY]FCY0 = CLE(ZI,9)
+      Read [CPY]CPY0 = [FCY]LEGCPY
+
+      #Call CONVERT3(DEVORG,DEVDES,GDEVSOC,TYPCOURS,DATCOURS,RNDCUR,MTORG,MTDES,STAT) From TRTDEV
+      Call CONVERT3(CLE(ZI,10),"EUR",GDEVSOC,3,gdat$(01,01,year(date$)+1),3,[F:ZFB]ZREV,[ZFB]ZREVEUR,ZSTA) From TRTDEV
+      Call CONVERT3(CLE(ZI,10),[CPY]ACCCUR,GDEVSOC,3,gdat$(01,01,year(date$)+1),3,[F:ZFB]ZREV,[ZFB]ZREVCUR,ZSTA) From TRTDEV
+
+      [ZFB]CREUSR = GUSER
+      [ZFB]CREDAT = date$
+
+    Endif #ZOKTRT
+
+    [ZFB]ZSTA = 2
+
+    Rewrite [ZFB]
+    If fstat
+      STARET = 2
+      MESRET=mess(2,6002,1)
+      Return
+    Endif
+
+    Filter [ZFH] Where ZPROCESS = [ZFB]ZPROCESS & ZANNEE=[F:ZFB]ZANNEE & ZPERNUM=[F:ZFB]ZPERNUM
+&                    & ZREP=[F:ZFB]ZREP & ZGRPBPC=[F:ZFB]ZGRPBPC & ZBPDCRY=[F:ZFB]ZBPDCRY & ZSTA<2
+    Read [ZFH] First
+    Filter [ZFH]
+    If fstat=0
+      [ZFH]ZSTA=2
+      Rewrite [ZFH]
+      If fstat
+        STARET = 2
+        MESRET=mess(16,6002,1)
+        Return
+      Endif
+    Endif
+
+  Endif
+
+Return
+

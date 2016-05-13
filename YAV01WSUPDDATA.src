@@ -1,0 +1,247 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#**
+#* ******************************************************
+#* Client                   : AVV
+#* ******************************************************
+#* Traitement               : YAV01WSUPDDATA
+#* Date de création         : 03/07/2013
+#* Date de dernière MAJ     : 03/11/2015
+#* Version                  : 2.0
+#* Auteurs                  : OMA
+#* *******************************************************
+#* Fiches spécifiques       :
+#* Codes  spécifiques       : YAV01 - Bureautique
+#* Desc Fiches spécifiques  : Librairie Web service maj générique données
+#* *******************************************************
+#* Modifications ( évolutions, bug,...)
+#* *******************************************************
+#* Date       : Auteur  : Description           : No evolution/bug
+#* *******************************************************
+#* XX/XX/XXXX : XXX     : XXXXXXXXXXXXXXXXXXXX  : ENNNN
+#*
+#*!
+
+
+$INITWS
+
+[L]TYP       = "TRT(YS06WSUPDBUD):SUBPROG(ECRBUD)"
+[L]FILT      = "SAGEOMA"
+[L]NBUPD     = 0
+[L]TRANSAC   = "End"
+[L]NBTABCLB  = 8
+[L]NBKEY     = 10
+[L]NBVAL     = 1
+
+[L]TABKEYCLB(1) = '{"1","2","3","4","5","6","7","8","9","10"}'
+[L]TABKEYCLB(2) = '{"1","2","3","4","5","6","7","8","9","10"}'
+
+
+#[L]TABVALCLB(1) = '{"B101","B102","B103","B104","B105","B106","B107","E. SchwiersB108","B109","B110","B111","B111","B111","B111","B111","B111","B111","B111","B111",}'
+[L]TABVALCLB(1) = '{"100"}'
+[L]TABVALCLB(2) = '{"200"}'
+Return
+
+$RESULTWS
+
+
+Local Integer YI,YJ,YK
+Call ECR_TRACE("*******************",0) From GESECRAN
+Call ECR_TRACE("PARAM IN",0) From GESECRAN
+Call ECR_TRACE("*******************",0) From GESECRAN
+Call ECR_TRACE("TYP  ="+[L]TYP,0) From GESECRAN
+Call ECR_TRACE("FILT  ="+[L]FILT,0) From GESECRAN
+Call ECR_TRACE("NBUPD  ="+num$([L]NBUPD),0) From GESECRAN
+Call ECR_TRACE("TRANSAC  ="+num$([L]TRANSAC),0) From GESECRAN
+Call ECR_TRACE("NBTABCLB  ="+num$([L]NBTABCLB),0) From GESECRAN
+Call ECR_TRACE("NBKEY="+num$([L]NBKEY),0) From GESECRAN
+Call ECR_TRACE("NBVAL  ="+num$([L]NBVAL),0) From GESECRAN
+
+For YI=1 To NBTABCLB
+   Call ECR_TRACE("TABKEYCLB("+num$(YI)+")="+[L]TABKEYCLB(YI),0) From GESECRAN
+Next
+Call ECR_TRACE("",0) From GESECRAN
+
+For YI=1 To NBTABCLB
+   Call ECR_TRACE("TABVALCLB("+num$(YI)+")="+[L]TABVALCLB(YI),0) From GESECRAN
+Next
+
+Call ECR_TRACE("*******************",0) From GESECRAN
+Call ECR_TRACE("*******************",0) From GESECRAN
+Call ECR_TRACE("PARAM OUT",0) From GESECRAN
+Call ECR_TRACE("*******************",0) From GESECRAN
+Call ECR_TRACE("STARET    ="+num$([L]STARET),0) From GESECRAN
+Call ECR_TRACE("MESRET    ="+num$([L]MESRET),0) From GESECRAN
+
+Call ECR_TRACE("",0) From GESECRAN
+Call ECR_TRACE("*******************",0) From GESECRAN
+Return
+
+
+
+
+Subprog UPDDATA(TYP,FILT,NBUPD, TRANSAC,NBTABCLB ,NBKEY,NBVAL,TABKEYCLB,TABVALCLB,STARET,MESRET)
+Value    Char    TYP()     : # typ de traitement de mise à jour
+Value    Char    FILT()    : # Filtre
+Value    Integer NBUPD     : # Nombre total de la maj
+Value    Char    TRANSAC   : # Begin, Current,End
+Value    Integer NBTABCLB  :  # nb des tableaux TABKEYCLB et TABVALCLB
+Value    Integer NBKEY     : # nb de cles dans une ligne
+Value    Integer NBVAL     : # nb de valeurs dans une ligne
+Value    Clbfile    TABKEYCLB()()
+Value    Clbfile    TABVALCLB() : # tableau de valeurs retournées à mettre à jour
+Variable Integer    STARET
+Variable Clbfile    MESRET
+
+Local Clbfile    VALCLB(GLONACB)
+
+Local Char    ACTION(100)
+Local Char    ACTION_SVG(100)
+
+Local Char TYPPRINC(100),NOMTRT(100)
+Call ANALYSE_TYP(TYP,TYPPRINC,NOMTRT) From YAV01WSSELDATA
+
+Case [L]TYPPRINC
+ When "TRT"
+   Gosub TRT_SUBPROG
+Endcase
+
+
+End
+
+
+$TRT_SUBPROG
+
+Local Integer YI,YJ,YK
+Local Integer YCOL
+
+ACTION_SVG=ACTION
+ACTION="INI_TRT_SUBPROG"
+Gosub ACTION From =NOMTRT
+ACTION=ACTION_SVG
+
+
+For YI = 0 To NBTABCLB-1
+ [L]VALCLB = [L]TABKEYCLB(YI)
+ Raz CLEVAL
+ Gosub TRT_SUBPROG_ALIM_TAB
+ For YJ=0 To NBKEY-1
+  If CLEVAL(YJ)<>""
+   CLE(YI,YJ) = func TRANSFORM_HTML(CLEVAL(YJ))
+   CLE(YI,YJ) = seg$(CLE(YI,YJ),2,len(CLE(YI,YJ))-1)
+  Endif
+ Next
+ [L]VALCLB = [L]TABVALCLB(YI)
+ Raz CLEVAL
+ Gosub TRT_SUBPROG_ALIM_TAB
+ For YJ=0 To NBVAL-1
+  If CLEVAL(YJ)<>""
+   VALEUR(YI,YJ) = func TRANSFORM_HTML(CLEVAL(YJ))
+   VALEUR(YI,YJ) = seg$(VALEUR(YI,YJ),2,len(VALEUR(YI,YJ))-1)
+  Endif
+ Next
+Next
+ACTION_SVG=ACTION
+ACTION="UPD_TRT_SUBPROG"
+Gosub ACTION From =NOMTRT
+ACTION=ACTION_SVG
+Return
+
+###########
+#$TRT_ZWSFBUD_SUBPROG_ECRBUD
+#
+##Call ECR_TRACE("DECRYPTAGE",0) From GESECRAN
+#Local Integer YI,YJ,YK
+#Local Integer YCOL
+#
+#Local Char CLE(50)(0..1000,0..NBKEY)
+#Local Char VALEUR(50)(0..1000,0..NBVAL)
+#Local Char CLEVAL(50)(0..max(NBKEY,NBVAL)+1000)
+#For YI = 0 To NBTABCLB-1
+# [L]VALCLB = [L]TABKEYCLB(YI)
+# Raz CLEVAL
+# Gosub TRT_ZWSFBUD_SUBPROG_UPDBUD_ALIM_TAB
+# For YJ=0 To NBKEY-1
+#  If CLEVAL(YJ)<>""
+#   CLE(YI,YJ) = func TRANSFORM_HTML(CLEVAL(YJ))
+#   CLE(YI,YJ) = seg$(CLE(YI,YJ),2,len(CLE(YI,YJ))-1)
+#  Endif
+# Next
+# [L]VALCLB = [L]TABVALCLB(YI)
+# Raz CLEVAL
+# Gosub TRT_ZWSFBUD_SUBPROG_UPDBUD_ALIM_TAB
+# For YJ=0 To NBVAL-1
+#  If CLEVAL(YJ)<>""
+#   VALEUR(YI,YJ) = func TRANSFORM_HTML(CLEVAL(YJ))
+#   VALEUR(YI,YJ) = seg$(VALEUR(YI,YJ),2,len(VALEUR(YI,YJ))-1)
+#  Endif
+# Next
+#Next
+#Call ECRBUD(FILT,TRANSAC,NBTABCLB,CLE,VALEUR,STARET,MESRET)  From ZWSFBUD
+#
+#Return
+
+###########
+$TRT_SUBPROG_ALIM_TAB
+#Call ECR_TRACE("TABKEYCLB("+num$(YI)+")="+[L]VALCLB,0) From GESECRAN
+YCOL=0
+YJ = instr(1,[L]VALCLB,"{")
+If YJ=1
+ VALCLB = right$(VALCLB,2)
+ YJ = instr(1,[L]VALCLB,"}")
+ If YJ=len([L]VALCLB)
+  VALCLB = left$(VALCLB,len(VALCLB)-1)
+  YJ = instr(1,[L]VALCLB,'","')
+  YCOL=0
+  While VALCLB<>"" & YJ<>0
+#Onerrgo ZOL
+   If YJ>0
+    CLEVAL(YCOL) = seg$(VALCLB,1,YJ)
+   Else
+    CLEVAL(YCOL) = VALCLB
+   Endif
+#Onerrgo
+   #Call ECR_TRACE("CLEVAL("+num$(YCOL)+")="+CLEVAL(YCOL),0) From GESECRAN
+   VALCLB = seg$(VALCLB,YJ+2,len(VALCLB))
+   YJ = instr(1,[L]VALCLB,'","')
+   YCOL+=1
+  Wend
+  CLEVAL(YCOL)=VALCLB : Raz VALCLB
+ Endif
+Endif
+Return
+
+$ZOL
+
+#Call ERREUR("OL--> "-seg$(VALCLB,1,YJ-1)) From GESECRAN
+End
+
+
+
+######################
+Funprog TRANSFORM_HTML(VALEUR)
+Value Char VALEUR()
+
+Local Char RET(200)
+Local Integer I
+Local Char SRC(10), DES(10)
+
+RET = VALEUR
+
+For SRC="&amp;"
+ Gosub TRANSFORME
+ I = instr(1,RET,SRC)
+ While I>0
+  RET= seg$(RET,1,I-1) + DES + seg$(RET,I+len(SRC),len(RET))
+  I = instr(1,RET,SRC)
+ Wend
+Next
+#Call MESSAGE("ol"-RET) From GESECRAN
+End RET
+
+$TRANSFORME
+Case SRC
+ When "&amp;" : DES = "&"
+Endcase
+
+Return
+

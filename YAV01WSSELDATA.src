@@ -1,0 +1,508 @@
+#<AdxTL>@(#)0.0.0.0 $Revision$
+#**
+#* ******************************************************
+#* Client                   : AVV
+#* ******************************************************
+#* Traitement               : YAV01WSSELDATA
+#* Date de création         : 03/07/2013
+#* Date de dernière MAJ     : 03/11/2015
+#* Version                  : 2.0
+#* Auteurs                  : OMA
+#* *******************************************************
+#* Fiches spécifiques       :
+#* Codes  spécifiques       : YAV01 - Bureautique
+#* Desc Fiches spécifiques  : Librairie Web service sélection générique données
+#* *******************************************************
+#* Modifications ( évolutions, bug,...)
+#* *******************************************************
+#* Date       : Auteur  : Description           : No evolution/bug
+#* *******************************************************
+#* XX/XX/XXXX : XXX     : XXXXXXXXXXXXXXXXXXXX  : ENNNN
+#*
+#*!
+
+
+# web service YSELDATA
+# 500 lignes , 170 colonnes , longueur de champ 170
+#GTEST=1
+#[S]maxmem = 792 * 1024
+
+Run ="WJYSELDATA"
+
+End
+
+#**
+#*
+#* Initialiser paramètres Web service pour test uniquement
+#*!
+$INITWS
+
+[L]TYP="TRT(YAV01WSSELSOS)"
+[L]TABCRIT(1)= "AO011"   : # Site X3
+[L]TABCRIT(2)= "01/01/2000"   : # date début
+[L]TABCRIT(3)= "01/01/2016"   : # date début
+[L]NEXTT = 1
+#[L]NOREQ =107
+
+Return
+
+#**
+#*
+#* Afficher les paramètres retournés par le Web service pour test uniquement
+#*!
+$RESULTWS
+
+
+Local Integer YI,YJ
+Call ECR_TRACE("*******************",0) From GESECRAN
+Call ECR_TRACE("PARAM IN",0) From GESECRAN
+Call ECR_TRACE("*******************",0) From GESECRAN
+Call ECR_TRACE("TYP  ="+[L]TYP,0) From GESECRAN
+Call ECR_TRACE("NEXTT (Select suivante? 1=non,2=oui) ="+num$([L]NEXTT),0) From GESECRAN
+Call ECR_TRACE("TABCRIT(0) ="+[L]TABCRIT(0),0) From GESECRAN
+
+Call ECR_TRACE("*******************",0) From GESECRAN
+Call ECR_TRACE("*******************",0) From GESECRAN
+Call ECR_TRACE("PARAM OUT",0) From GESECRAN
+Call ECR_TRACE("*******************",0) From GESECRAN
+Call ECR_TRACE("ALLSEL    ="+num$([L]ALLSEL),0) From GESECRAN
+Call ECR_TRACE("NBSEL     ="+num$([L]NBSEL),0) From GESECRAN
+Call ECR_TRACE("TABNB     ="+num$([L]TABNB),0) From GESECRAN
+Call ECR_TRACE("STARET    ="+num$([L]STARET),0) From GESECRAN
+Call ECR_TRACE("MESRET    ="+num$([L]MESRET),0) From GESECRAN
+Call ECR_TRACE("NOREQ     ="+num$([L]NOREQ),0) From GESECRAN
+
+Call ECR_TRACE("",0) From GESECRAN
+
+For YI=1 To TABNB
+   Call ECR_TRACE("TABVALCLB("+num$(YI)+")="+[L]TABVALCLB(YI),0) From GESECRAN
+Next
+
+Call ECR_TRACE("",0) From GESECRAN
+Call ECR_TRACE("*******************",0) From GESECRAN
+Return
+
+$AV_WS
+# Table de log des web services déjà ouverte
+Local Integer ZZN : ZZN=-1
+ZZN+=1 : [F:YWL]ZPARINCOD(ZZN) = "TYP" : [F:YWL]ZPARINLIB(ZZN) = "Type web service" : [F:YWL]ZPARINVAL(ZZN)=num$([L]TYP)
+ZZN+=1 : [F:YWL]ZPARINCOD(ZZN) = "TABCRIT(0)" : [F:YWL]ZPARINLIB(ZZN) = "Code user budget" : [F:YWL]ZPARINVAL(ZZN)=num$([L]TABCRIT(0))
+ZZN+=1 : [F:YWL]ZPARINCOD(ZZN) = "NEXTT" : [F:YWL]ZPARINLIB(ZZN) = "NEXTT" : [F:YWL]ZPARINVAL(ZZN)=num$([L]NEXTT)
+ZZN+=1 : [F:YWL]ZPARINCOD(ZZN) = "NOREQ " : [F:YWL]ZPARINLIB(ZZN) = "No de requette" : [F:YWL]ZPARINVAL(ZZN)=num$([L]NOREQ)
+
+
+
+
+Return
+
+$AP_WS
+
+# Table de log des web services déjà ouverte
+Local Integer ZZN : ZZN=-1
+ZZN+=1 : [F:YWL]ZPAROUTCOD(ZZN) = "ALLSEL" : [F:YWL]ZPAROUTLIB(ZZN) = "" : [F:YWL]ZPAROUTVAL(ZZN)=num$([L]ALLSEL)
+ZZN+=1 : [F:YWL]ZPAROUTCOD(ZZN) = "NBSEL" : [F:YWL]ZPAROUTLIB(ZZN) = "" : [F:YWL]ZPAROUTVAL(ZZN)=num$([L]NBSEL)
+ZZN+=1 : [F:YWL]ZPAROUTCOD(ZZN) = "TABNB" : [F:YWL]ZPAROUTLIB(ZZN) = "" : [F:YWL]ZPAROUTVAL(ZZN)=num$([L]TABNB)
+ZZN+=1 : [F:YWL]ZPAROUTCOD(ZZN) = "STARET" : [F:YWL]ZPAROUTLIB(ZZN) = "" : [F:YWL]ZPAROUTVAL(ZZN)=num$([L]STARET)
+ZZN+=1 : [F:YWL]ZPAROUTCOD(ZZN) = "MESRET" : [F:YWL]ZPAROUTLIB(ZZN) = "" : [F:YWL]ZPAROUTVAL(ZZN)=num$([L]MESRET)
+ZZN+=1 : [F:YWL]ZPAROUTCOD(ZZN) = "NOREQ" : [F:YWL]ZPAROUTLIB(ZZN) = "" : [F:YWL]ZPAROUTVAL(ZZN)=num$([L]NOREQ)
+ZZN+=1 : [F:YWL]ZPAROUTCOD(ZZN) = "ALLSEL" : [F:YWL]ZPAROUTLIB(ZZN) = "" : [F:YWL]ZPAROUTVAL(ZZN)=num$([L]ALLSEL)
+ZZN+=1 : [F:YWL]ZPAROUTCOD(ZZN) = "ALLSEL" : [F:YWL]ZPAROUTLIB(ZZN) = "" : [F:YWL]ZPAROUTVAL(ZZN)=num$([L]ALLSEL)
+
+
+Return
+
+
+#################
+Subprog SELDATA(TYP,NEXTT,TABCRIT,ALLSEL,NBSEL,TABNB,STARET,MESRET,NOREQ,TABVALCLB)
+Value    Char    TYP() : # typ de section demandée SEC ou NAT ou PARBUD
+Value    Integer NEXTT : # enregistrements suivants : 1=non, 2=oui
+Value    Char    TABCRIT()() : # TABCRIT(0) = code user X3
+Variable Integer ALLSEL : # 1: il reste encore des données à récuperer, 2 : tout a été selectionné
+Variable Integer NBSEL  : # Nombre total de la selection
+Variable Integer TABNB : # nb de lignes dans le tableau retourné TABVALCLB
+Variable Integer STARET : # Statut de retour
+Variable Char    MESRET() : # message de retour
+Variable Integer NOREQ    : # No de requete retournée quand NEXTT=2
+Variable Clbfile    TABVALCLB() : # tableau de valeurs retournées alpha
+
+
+Local Char TYPPRINC(100),NOMTRT(100)
+Call ANALYSE_TYP(TYP,TYPPRINC,NOMTRT)
+
+Local Char    ACTION(100)
+Local Char    ACTION_SVG(100)
+
+If !clalev([F:YSE]) : Local File YAV01WSSEL [YSE] : Endif
+#If !clalev([F:AWE]) : Local File AWEBSERVIC [AWE] : Endif
+
+Local Integer YMAXTAB
+Local Integer NBLIN
+Local Date    YDATCRE
+Local Char    PUBLI(100)
+Local Integer I_VALSTR, J_VALSTR
+Local Clbfile    VALCLB(GLONACB)
+Local Integer CALCUL
+# CALCUL=1 --> Cas ou le calcul se fait via fonction X3 sans selection avec NEXTT=1
+#
+# CALCUL=2 --> Cas ou le calcul se fait dans le web service avec selection avec NEXTT=1
+#
+
+
+[L]YDATCRE = date$
+[L]ALLSEL=0
+
+# verif contexte user
+CALCUL=2
+ACTION_SVG=ACTION
+ACTION="SET_CALCUL"
+
+Gosub ACTION From =NOMTRT
+ACTION=ACTION_SVG
+
+#Dbgaff
+#CALCUL=1
+If STARET<>0
+ Goto $FIN_PROG
+ End
+Endif
+If NEXTT=-1 & CALCUL=2
+ STARET = 10
+ MESRET = "Cette fonction X3 n'est pas compatible avec le profil utilisateur"
+ Goto $FIN_PROG
+ End
+Endif
+#fin verif
+
+Gosub SET_PUBLI
+#V6Read [AWE]YAW1 = 2;"YWSSDSELDATA";"SELDATA"
+#V6If !fstat
+#V6 [L]PUBLI = [F:AWE]PUBLI
+#V6Endif
+
+[L]YMAXTAB = dim([L]TABVALCLB)
+
+##
+Case NEXTT
+ When -1 : # calcul avec fonction X3
+  [L]NOREQ=uniqid([F:YSE])
+   Gosub DEL_TAB_AVEC_USER
+   ALLSEL=1
+ When 0,1
+  NOREQ = 0
+
+  If CALCUL=1 : # le calcul a été fait avec lka fonction X3 et on doit retrouver un NOREQ dans la table
+   Filter [YSE] Where PUBLI=[L]PUBLI & CREUSR=TABCRIT(0)
+   Read [YSE]YSE2 Last
+   Filter [YSE]
+   If !fstat
+    [L]NOREQ    = [F:YSE]NOREQ
+    Gosub MAJ_TAB_AVEC_USER
+   Else
+    STARET=2000 : MESRET="You must calculate budget in X3"
+    Goto $FIN_PROG
+    End
+   Endif
+  Else : #CALCUL=2
+   [L]NOREQ=uniqid([F:YSE])
+   Gosub DEL_TAB_SANS_USER
+  Endif
+  ALLSEL=1
+ When 2
+  # rien à faire le NOREQ est passé en paramètre
+  ALLSEL=2
+Endcase
+
+[L]TABNB =0
+
+
+Case [L]TYPPRINC
+ When "TRT"
+   Gosub TRT_SUBPROG
+  Endcase
+
+$FIN_PROG
+End
+
+###
+$SET_PUBLI
+[L]PUBLI   = "YSELDATA"
+Return
+
+##########
+$TRT_SUBPROG
+Case CALCUL
+ When 2
+  If find([L]NEXTT,0,1)
+   Gosub SEL_TRT_SUBPROG
+  Else
+   Gosub SEL_YSE
+  Endif
+ When 1
+  If [L]NEXTT=-1
+   Gosub SEL_TRT_SUBPROG
+  Else
+   Gosub SEL_YSE
+  Endif
+
+Endcase
+Return
+
+
+
+######################
+$SEL_TRT_SUBPROG
+
+######################
+
+#[S]maxmem = 792 * 1024
+
+Raz [L]TABVALCLB
+ACTION_SVG=ACTION
+ACTION="SEL_TRT_SUBPROG"
+Gosub ACTION From =NOMTRT
+ACTION=ACTION_SVG
+
+YI=0
+[L]NBLIN +=1
+Raz [L]VALCLB
+Gosub SEL_TRT_SUBPROG_APPEND
+If CALCUL=2
+ [L]TABNB+=1
+ [L]TABVALCLB(TABNB-1) = [L]VALCLB
+Else
+ Trbegin [YSE]
+ GOK=1
+ Gosub MAJ_TAB
+ If GOK=1
+  Commit
+ Else
+  Rollback
+  #End
+  Return
+ Endif
+Endif
+###
+[L]NBLIN +=1
+Raz [L]VALCLB
+Gosub SEL_TRT_SUBPROG_APPEND_2
+If CALCUL=2
+ [L]TABNB+=1
+ [L]TABVALCLB(TABNB-1) = [L]VALCLB
+Else
+ Trbegin [YSE]
+ GOK=1
+ Gosub MAJ_TAB
+ If GOK=1
+  Commit
+ Else
+  Rollback
+  #End
+  Return
+ Endif
+Endif
+
+
+###
+Trbegin [YSE]
+GOK=1
+
+For YI=1 To YNBLIG-1
+ [L]NBLIN +=1
+ Raz [L]VALCLB
+ Gosub SEL_TRT_SUBPROG_APPEND
+ If [L]TABNB<[L]YMAXTAB
+    [L]ALLSEL = 2
+    If CALCUL=2
+        [L]TABNB+=1
+        [L]TABVALCLB(TABNB-1) = [L]VALCLB
+    Else
+     Gosub MAJ_TAB
+     If GOK<1 : Break : Endif
+    Endif
+ Else
+    [L]ALLSEL= 1
+     Gosub MAJ_TAB
+     If GOK<1 : Break : Endif
+ Endif
+Next
+
+If GOK=1
+ Commit
+Else
+ Rollback
+Endif
+
+
+
+Return
+
+######################
+$SEL_TRT_SUBPROG_APPEND
+
+#V6APPEND [L]VALCLB, "{"
+[L]VALCLB+="{"
+For YJ=0 To YNBTABVAL-2
+     #V6APPEND [L]VALCLB, '"'+YTABVAL(YJ)+'"'
+     [L]VALCLB += '"'+YTABVAL(YI,YJ)+'"'
+     #V6APPEND [L]VALCLB, ','
+     [L]VALCLB += ','
+Next
+If YNBTABVAL-1>=0
+ #V6APPEND [L]VALCLB, '"'+YTABVAL(YNBTABVAL-1)+'"'
+ [L]VALCLB += '"'+YTABVAL(YI,YNBTABVAL-1)+'"'
+ #V6APPEND [L]VALCLB, "}"
+ [L]VALCLB += "}"
+Endif
+Return
+
+######################
+$SEL_TRT_SUBPROG_APPEND_2
+
+#V6APPEND [L]VALCLB, "{"
+[L]VALCLB+="{"
+For YJ=0 To YNBTABVAL-2
+     #V6APPEND [L]VALCLB, '"'+YTABDESCOL(YJ)+'"'
+     [L]VALCLB += '"'+YTABDESCOL(YJ)+'"'
+     #V6APPEND [L]VALCLB, ','
+     [L]VALCLB += ','
+Next
+If YNBTABVAL-1>=0
+ #V6APPEND [L]VALCLB, '"'+YTABDESCOL(YNBTABVAL-1)+'"'
+ [L]VALCLB += '"'+YTABDESCOL(YNBTABVAL-1)+'"'
+ #V6APPEND [L]VALCLB, "}"
+ [L]VALCLB += "}"
+Endif
+Return
+
+######################
+$SEL_YSE
+######################
+Trbegin [YSE]
+GOK=1
+For [F:YSE]YSE0 Where NOREQ = [L]NOREQ & PUBLI=[L]PUBLI & ROWREAD=1
+ #[L]NBLIN +=1
+ [L]NBSEL=[F:YSE]NBSEL
+ If [L]TABNB<[L]YMAXTAB
+    [L]TABNB+=1
+    #[L]TABVALCLB([L]TABNB-1)  = [F:YSE]VALCLB
+    [L]TABVALCLB([L]TABNB-1)=""
+    For I_VALSTR = 0 To dim([F:YSE]VALSTR)-1
+     [L]TABVALCLB([L]TABNB-1)+=[F:YSE]VALSTR(I_VALSTR)
+     If [F:YSE]VALSTR(I_VALSTR)=""
+      Break
+     Endif
+    Next
+    #Trbegin [YSE]
+    If CALCUL=2
+     Delete [YSE] Curr
+    Else
+     [F:YSE]ROWREAD=2
+     Rewrite [YSE] Curr
+    Endif
+    #Commit
+ Else
+    [L]ALLSEL= 1
+ Endif
+Next
+Commit
+Return
+
+######################
+$MAJ_TAB
+######################
+#Trbegin [YSE]
+#GOK=1
+Raz [F:YSE]
+[F:YSE]NOREQ = [L]NOREQ
+[F:YSE]PUBLI   = [L]PUBLI
+[F:YSE]LIG     = [L]NBLIN
+[F:YSE]CREUSR  = TABCRIT(0)
+[F:YSE]CREDAT  = [L]YDATCRE
+[F:YSE]ROWREAD  = 1
+[F:YSE]NBSEL   = [L]NBSEL
+#[F:YSE]VALCLB = [L]VALCLB
+J_VALSTR=1
+For I_VALSTR = 0 To dim([F:YSE]VALSTR)-1
+ [F:YSE]VALSTR(I_VALSTR) = seg$([L]VALCLB,J_VALSTR,J_VALSTR+199)
+ If [F:YSE]VALSTR(I_VALSTR)=""
+  Break
+ Endif
+ J_VALSTR+= 200
+Next
+Write [YSE]
+If fstat
+ Call FSTA("YSE") From GLOCK
+ GOK=0
+Endif
+#If GTEST=1
+# [F:YSE]noreq = 0
+# Write [YSE]
+# If fstat
+#  Call FSTA("YSE") From GLOCK
+#  GOK=0
+# Endif
+#Endif
+#If GOK=1
+# Commit
+#Else
+# Rollback
+#Endif
+Return
+
+######################
+$DEL_TAB_SANS_USER
+######################
+Trbegin [YSE]
+GOK=1
+
+Delete [YSE] Where PUBLI=[L]PUBLI & CREDAT<[L]YDATCRE-1
+Commit
+Return
+
+######################
+$DEL_TAB_AVEC_USER
+######################
+Trbegin [YSE]
+Delete [YSE] Where PUBLI=[L]PUBLI & CREUSR= TABCRIT(0)
+Commit
+Return
+
+######################
+$MAJ_TAB_AVEC_USER
+######################
+Trbegin [YSE]
+Update [YSE] Where NOREQ=[L]NOREQ & PUBLI=[L]PUBLI & CREUSR= TABCRIT(0) With [F:YSE]ROWREAD=1
+Commit
+
+Return
+
+#**
+#*
+#* Analyse le type du web service
+#*
+#* @param TYP Type du web service
+#* @param TYPPRINC  Type principal du web service
+#* @param NOMTRT : Nom du traitement dans le cas ou TYPPRINC="TRT"
+#*!
+[L]TYP="TRT(YS06WSSELBUD):SUBPROG(SELBUD)"
+Subprog ANALYSE_TYP(TYP,TYPPRINC,NOMTRT)
+Value     Char TYP()
+Variable  Char TYPPRINC()
+Variable  Char NOMTRT()
+
+Raz TYPPRINC, NOMTRT
+
+Local Char CHAINE(200)
+Local Integer I,J
+
+[L]TYPPRINC = left$([L]TYP,3)
+I=instr(1,TYP,TYPPRINC+"(")
+J=len(TYPPRINC+"(")
+
+CHAINE=right$(TYP,I+J)
+I=instr(1,CHAINE,")")
+CHAINE=left$(CHAINE,I-1)
+
+NOMTRT = CHAINE
+End
+

@@ -1,0 +1,9 @@
+# X3PU9TRAIN_SEED_LOCALDOC project settings
+# The endpoint in an uri form. The scheme define the connection type# http:// for update 8.0 and greater, x3:// or none for previous versions
+uri=http://x3pu9trainvm:8124/X3PU9TRAIN_SEED_LOCALDOC/SEED
+# ===================================================
+# Obsolete settings (kept for backward compatibility)
+# ===================================================
+server=x3pu9trainvm
+port=8124
+folder=SEED
