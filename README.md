@@ -1,4 +1,4 @@
-# An example of two web services that enable to read or write in to supply X3 Excel
+# An example of two web services that enable to read or write into X3 via Excel
 
 ## Features
 
